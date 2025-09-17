@@ -1,0 +1,56 @@
+{
+  "name": "@suwujs/nuxt-kit",
+  "type": "module",
+  "version": "0.102.1",
+  "description": "dev logger",
+  "author": "suk.bear <suk.bear.suwu@gamil.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/sukbearai/x-dev-tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sukbearai/x-dev-tools"
+  },
+  "bugs": "https://github.com/sukbearai/x-dev-tools/issues",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/module.mjs",
+      "require": "./dist/module.cjs"
+    }
+  },
+  "main": "./dist/module.cjs",
+  "types": "./dist/types.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "postinstall": "pnpm --filter @suwujs/logger build && pnpm run dev:prepare",
+    "dev:prepare": "tsx scripts/prepare.ts",
+    "prepack": "nuxt-module-build build",
+    "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
+    "build": "npm run prepack",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@nuxt/kit": "catalog:",
+    "jspdf": "^3.0.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "catalog:",
+    "@nuxt/module-builder": "^0.8.4",
+    "@nuxt/schema": "catalog:",
+    "@nuxt/test-utils": "^3.15.4",
+    "@suwujs/logger": "workspace:*",
+    "@types/node": "latest",
+    "changelogen": "^0.5.7",
+    "nuxt": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}
