@@ -1,7 +1,7 @@
 {
   "name": "server",
   "scripts": {
-    "dev": "edgeone pages dev",
+    "dev:start": "edgeone pages dev",
     "deploy": "rm -rf ./node_modules && edgeone pages deploy ./ -n paper-rewriting-app-server -t ",
     "sync-docs": "node scripts/sync-docs.js",
     "build": "npm run sync-docs"
@@ -13,7 +13,7 @@
     "marked-highlight": "^2.2.1"
   },
   "devDependencies": {
-    "@edgeone/ef-types": "^1.0.5",
-    "edgeone": "^1.0.21"
+    "@edgeone/ef-types": "latest",
+    "edgeone": "latest"
   }
 }
