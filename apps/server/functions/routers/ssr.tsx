@@ -9,7 +9,7 @@ ssr.get('/:name', (c) => {
   const props = {
     name,
     siteData: {
-      title: `Hello ${name} - JSX Sample 🔥`,
+      title: `Hello ${name} - JSX Sample 🐶`,
     },
   }
   return c.html(<Content {...props} />)
