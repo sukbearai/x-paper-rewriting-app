@@ -1,3 +1,31 @@
+# Node/monorepo basics
+node_modules/
+dist/
+build/
+.turbo/
+.cache/
+.tmp/
+*.log
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# Env files (keep example)
+.env
+.env.*
+!.env.example
+
+# Vite/Dev caches
+.vite/
+
+# EdgeOne generated artifacts (do not commit)
+apps/server/.edgeone/
 .cache
 .DS_Store
 .idea
