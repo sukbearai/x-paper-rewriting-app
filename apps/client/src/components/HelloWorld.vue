@@ -1,14 +1,34 @@
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
-defineProps({
-  msg: String,
-})
+defineProps<{ msg: string }>()
 
 const count = ref(0)
 </script>
 
 <template>
+  <div class="flex justify-center items-center gap-2">
+    <el-icon :size="size" :color="color">
+      <Edit />
+    </el-icon>
+    <el-button>Default</el-button>
+    <el-button type="primary">
+      Primary
+    </el-button>
+    <el-button type="success">
+      Success
+    </el-button>
+    <el-button type="info">
+      Info
+    </el-button>
+    <el-button type="warning">
+      Warning
+    </el-button>
+    <el-button type="danger">
+      Danger
+    </el-button>
+  </div>
+
   <h1>{{ msg }}</h1>
 
   <div class="card">
@@ -26,12 +46,14 @@ const count = ref(0)
     <a href="https://vuejs.org/guide/quick-start.html#local" target="_blank">create-vue</a>, the official Vue + Vite starter
   </p>
   <p>
-    Install
-    <a href="https://github.com/johnsoncodehk/volar" target="_blank">Volar</a>
-    in your IDE for a better DX
+    Learn more about IDE Support for Vue in the
+    <a
+      href="https://vuejs.org/guide/scaling-up/tooling.html#ide-support"
+      target="_blank"
+    >Vue Docs Scaling up Guide</a>.
   </p>
   <p class="read-the-docs">
-    Click on the Vite and Vue logos to learn more 🐶
+    Click on the Vite and Vue logos to learn more
   </p>
 </template>
 
