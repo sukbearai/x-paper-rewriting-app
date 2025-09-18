@@ -18,7 +18,7 @@
     "element-plus": "catalog:",
     "tailwindcss": "^4.1.13",
     "typescript": "catalog:",
-    "unplugin-auto-import": "^20.1.0",
+    "unplugin-auto-import": "catalog:",
     "unplugin-vue-components": "catalog:",
     "vite": "catalog:",
     "vue-tsc": "catalog:"
