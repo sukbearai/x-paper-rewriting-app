@@ -4,7 +4,7 @@ import { createSupabaseClient } from '@/utils/db'
 
 const user = new Hono<{ Bindings: EnvConfig }>()
 
-user.post('/', async (c) => {
+user.get('/', async (c) => {
 //   const body = await c.req.parseBody()
   const supabase = createSupabaseClient(c.env)
   const { data, error } = await supabase.from('profiles').select('*')
