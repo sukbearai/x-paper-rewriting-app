@@ -207,6 +207,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.57.4
+        version: 2.57.4
       highlight.js:
         specifier: ^11.11.1
         version: 11.11.1
@@ -219,13 +222,16 @@ importers:
       marked-highlight:
         specifier: ^2.2.1
         version: 2.2.2(marked@15.0.12)
+      zod:
+        specifier: ^4.1.9
+        version: 4.1.9
     devDependencies:
       '@edgeone/ef-types':
         specifier: latest
         version: 1.0.5
       edgeone:
         specifier: latest
-        version: 1.1.10(@types/node@24.5.2)(ink@6.3.0(react@19.1.1))(react@19.1.1)
+        version: 1.1.12(@types/node@24.5.2)(ink@6.3.0(react@19.1.1))(react@19.1.1)
 
   docs:
     dependencies:
@@ -406,7 +412,7 @@ importers:
     devDependencies:
       unocss:
         specifier: 'catalog:'
-        version: 0.64.0(@unocss/webpack@0.64.0(rollup@4.50.2)(webpack@5.96.1))(postcss@8.5.6)(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3))
+        version: 0.64.0(@unocss/webpack@0.64.0(rollup@4.50.2)(webpack@5.96.1(esbuild@0.23.1)))(postcss@8.5.6)(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3))
 
   packages/ui:
     dependencies:
@@ -916,8 +922,8 @@ packages:
   '@edgeone/ef-types@1.0.5':
     resolution: {integrity: sha512-YOxfv4R28Hd94Ric2vAGMWTAu0cxzWa3xHbviLS6h9ai/3rKB1xcI8aa+bg/hiyV3hlfw6UuSrLLhrYTWqZGkQ==}
 
-  '@edgeone/framework-detect@0.0.1':
-    resolution: {integrity: sha512-nAGDRpSRkJp3+wasJMxs5arrt6t3zbom6CAfNwRCWUNX4OUIZ7cW4/FYcIygt3YldnMtJ1n3E80WfkJ44Zifxw==}
+  '@edgeone/framework-detect@0.0.2':
+    resolution: {integrity: sha512-UfG2c2CvzLHfC7r4GkRAqTp4QekILOyU7WNhXOkhm3bHT+RBWxcECO+r3jBxhHsvYac8qjk5QHT7/ODNtQe0vQ==}
 
   '@edgeone/opennextjs-pages@0.0.1':
     resolution: {integrity: sha512-uGGa3EUKu5lnKxFNrEnISsxpOWJMy+LdzrEMprA6/+hfdjFGJz66ohIzDepiUSmf3nnxEEGr3pnuU5rhkmsOqQ==}
@@ -2669,6 +2675,28 @@ packages:
     peerDependencies:
       eslint: '>=8.40.0'
 
+  '@supabase/auth-js@2.71.1':
+    resolution: {integrity: sha512-mMIQHBRc+SKpZFRB2qtupuzulaUhFYupNyxqDj5Jp/LyPvcWvjaJzZzObv6URtL/O6lPxkanASnotGtNpS3H2Q==}
+
+  '@supabase/functions-js@2.4.6':
+    resolution: {integrity: sha512-bhjZ7rmxAibjgmzTmQBxJU6ZIBCCJTc3Uwgvdi4FewueUTAGO5hxZT1Sj6tiD+0dSXf9XI87BDdJrg12z8Uaew==}
+
+  '@supabase/node-fetch@2.6.15':
+    resolution: {integrity: sha512-1ibVeYUacxWYi9i0cf5efil6adJ9WRyZBLivgjs+AUpewx1F3xPi7gLgaASI2SmIQxPoCEjAsLAzKPgMJVgOUQ==}
+    engines: {node: 4.x || >=6.0.0}
+
+  '@supabase/postgrest-js@1.21.4':
+    resolution: {integrity: sha512-TxZCIjxk6/dP9abAi89VQbWWMBbybpGWyvmIzTd79OeravM13OjR/YEYeyUOPcM1C3QyvXkvPZhUfItvmhY1IQ==}
+
+  '@supabase/realtime-js@2.15.5':
+    resolution: {integrity: sha512-/Rs5Vqu9jejRD8ZeuaWXebdkH+J7V6VySbCZ/zQM93Ta5y3mAmocjioa/nzlB6qvFmyylUgKVS1KpE212t30OA==}
+
+  '@supabase/storage-js@2.12.1':
+    resolution: {integrity: sha512-QWg3HV6Db2J81VQx0PqLq0JDBn4Q8B1FYn1kYcbla8+d5WDmTdwwMr+EJAxNOSs9W4mhKMv+EYCpCrTFlTj4VQ==}
+
+  '@supabase/supabase-js@2.57.4':
+    resolution: {integrity: sha512-LcbTzFhHYdwfQ7TRPfol0z04rLEyHabpGYANME6wkQ/kLtKNmI+Vy+WEM8HxeOZAtByUFxoUTTLwhXmrh+CcVw==}
+
   '@sxzz/popperjs-es@2.11.7':
     resolution: {integrity: sha512-Ccy0NlLkzr0Ex2FKvh2X+OyERHXJ88XJ1MXtsI9y9fGexlaXaVTPzBCRBwIxFkORuOb+uBqeu+RqnpgYTEZRUQ==}
 
@@ -2853,6 +2881,9 @@ packages:
   '@types/parse-path@7.0.3':
     resolution: {integrity: sha512-LriObC2+KYZD3FzCrgWGv/qufdUy4eXrxcLgQMfYXgPbLIecKIsVBaQgUPmxSSLcjmYbDTQbMgr6qr6l/eb7Bg==}
 
+  '@types/phoenix@1.6.6':
+    resolution: {integrity: sha512-PIzZZlEppgrpoT2QgbnDU+MMzuR6BbCjllj0bM70lWoejMeNJAxCchxnv7J3XFkI8MpygtRpzXrIlmWUBclP5A==}
+
   '@types/raf@3.4.3':
     resolution: {integrity: sha512-c4YAvMedbPZ5tEyxzQdMoOhhJ4RD3rngZIdwC2/qDN3d7JpEhB6fiBRKVY1lg5B7Wk+uPBjn5f39j1/2MY1oOw==}
 
@@ -2873,6 +2904,9 @@ packages:
 
   '@types/web-bluetooth@0.0.20':
     resolution: {integrity: sha512-g9gZnnXVq7gM7v3tJCWV/qw7w+KeOlSHAhgF9RytFyifW6AF61hdT2ucrYhPq9hLs5JIryeupHV3qGk95dH9ow==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@typescript-eslint/eslint-plugin@8.3.0':
     resolution: {integrity: sha512-FLAIn63G5KH+adZosDYiutqkOkYEx0nvcwNNfJAf+c7Ae/H35qWwTYvPZUKFj5AS+WfHG/WJJfWnDnyNUlp8UA==}
@@ -4354,8 +4388,8 @@ packages:
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
-  edgeone@1.1.10:
-    resolution: {integrity: sha512-Ch/uRKfm2URaCzvo6z3+A9mr04nBVt7DuHRTP/mw6IW0x4RUriqJu9dgkaN3+by0AJl+uVn+J9aQNqHsZtDfYg==}
+  edgeone@1.1.12:
+    resolution: {integrity: sha512-WaGdT7gxHScfFD3Ggr6ThNcxWZYCXFuK+ek6Vq6tsjgVTF8Eve1fwfGXsoWV6ZStivVMUASmXskT3CDnur3+2Q==}
     engines: {node: '>=12'}
     hasBin: true
 
@@ -8486,6 +8520,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.18.3:
+    resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xlsx@0.18.5:
     resolution: {integrity: sha512-dmg3LCjBPHZnQp5/F/+nnTa+miPJxUXB6vtk42YjBBKayDNagxGEeIdWApkYPOf3Z3pm3k62Knjzp7lMeTEtFQ==}
     engines: {node: '>=0.8'}
@@ -8579,6 +8625,9 @@ packages:
 
   zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
+
+  zod@4.1.9:
+    resolution: {integrity: sha512-HI32jTq0AUAC125z30E8bQNz0RQ+9Uc+4J7V97gLYjZVKRjeydPgGt6dvQzFrav7MYOUGFqqOGiHpA/fdbd0cQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -9089,8 +9138,10 @@ snapshots:
 
   '@edgeone/ef-types@1.0.5': {}
 
-  '@edgeone/framework-detect@0.0.1':
+  '@edgeone/framework-detect@0.0.2':
     dependencies:
+      acorn: 8.15.0
+      acorn-walk: 8.3.4
       axios: 1.12.2
     transitivePeerDependencies:
       - debug
@@ -10764,6 +10815,48 @@ snapshots:
       - supports-color
       - typescript
 
+  '@supabase/auth-js@2.71.1':
+    dependencies:
+      '@supabase/node-fetch': 2.6.15
+
+  '@supabase/functions-js@2.4.6':
+    dependencies:
+      '@supabase/node-fetch': 2.6.15
+
+  '@supabase/node-fetch@2.6.15':
+    dependencies:
+      whatwg-url: 5.0.0
+
+  '@supabase/postgrest-js@1.21.4':
+    dependencies:
+      '@supabase/node-fetch': 2.6.15
+
+  '@supabase/realtime-js@2.15.5':
+    dependencies:
+      '@supabase/node-fetch': 2.6.15
+      '@types/phoenix': 1.6.6
+      '@types/ws': 8.18.1
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  '@supabase/storage-js@2.12.1':
+    dependencies:
+      '@supabase/node-fetch': 2.6.15
+
+  '@supabase/supabase-js@2.57.4':
+    dependencies:
+      '@supabase/auth-js': 2.71.1
+      '@supabase/functions-js': 2.4.6
+      '@supabase/node-fetch': 2.6.15
+      '@supabase/postgrest-js': 1.21.4
+      '@supabase/realtime-js': 2.15.5
+      '@supabase/storage-js': 2.12.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@sxzz/popperjs-es@2.11.7': {}
 
   '@tailwindcss/node@4.1.13':
@@ -10935,6 +11028,8 @@ snapshots:
 
   '@types/parse-path@7.0.3': {}
 
+  '@types/phoenix@1.6.6': {}
+
   '@types/raf@3.4.3':
     optional: true
 
@@ -10950,6 +11045,10 @@ snapshots:
   '@types/web-bluetooth@0.0.16': {}
 
   '@types/web-bluetooth@0.0.20': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 24.5.2
 
   '@typescript-eslint/eslint-plugin@8.3.0(@typescript-eslint/parser@8.3.0(eslint@9.9.1(jiti@2.5.1))(typescript@5.8.3))(eslint@9.9.1(jiti@2.5.1))(typescript@5.8.3)':
     dependencies:
@@ -11301,6 +11400,23 @@ snapshots:
       tinyglobby: 0.2.15
       unplugin: 1.16.1
       webpack: 5.96.1(esbuild@0.17.19)
+      webpack-sources: 3.2.3
+    transitivePeerDependencies:
+      - rollup
+      - supports-color
+    optional: true
+
+  '@unocss/webpack@0.64.0(rollup@4.50.2)(webpack@5.96.1(esbuild@0.23.1))':
+    dependencies:
+      '@ampproject/remapping': 2.3.0
+      '@rollup/pluginutils': 5.1.4(rollup@4.50.2)
+      '@unocss/config': 0.64.0
+      '@unocss/core': 0.64.0
+      chokidar: 3.6.0
+      magic-string: 0.30.19
+      tinyglobby: 0.2.15
+      unplugin: 1.16.1
+      webpack: 5.96.1(esbuild@0.23.1)
       webpack-sources: 3.2.3
     transitivePeerDependencies:
       - rollup
@@ -12852,9 +12968,9 @@ snapshots:
       jsbn: 0.1.1
       safer-buffer: 2.1.2
 
-  edgeone@1.1.10(@types/node@24.5.2)(ink@6.3.0(react@19.1.1))(react@19.1.1):
+  edgeone@1.1.12(@types/node@24.5.2)(ink@6.3.0(react@19.1.1))(react@19.1.1):
     dependencies:
-      '@edgeone/framework-detect': 0.0.1
+      '@edgeone/framework-detect': 0.0.2
       '@edgeone/opennextjs-pages': 0.0.1
       archiver: 7.0.1
       chokidar: 4.0.3
@@ -14113,7 +14229,7 @@ snapshots:
       type-fest: 4.33.0
       widest-line: 5.0.0
       wrap-ansi: 9.0.2
-      ws: 8.18.0
+      ws: 8.18.3
       yoga-layout: 3.2.1
     transitivePeerDependencies:
       - bufferutil
@@ -14355,7 +14471,7 @@ snapshots:
       whatwg-encoding: 3.1.1
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
-      ws: 8.18.0
+      ws: 8.18.3
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - bufferutil
@@ -16714,6 +16830,18 @@ snapshots:
       esbuild: 0.17.19
     optional: true
 
+  terser-webpack-plugin@5.3.10(esbuild@0.23.1)(webpack@5.96.1(esbuild@0.23.1)):
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      jest-worker: 27.5.1
+      schema-utils: 3.3.0
+      serialize-javascript: 6.0.2
+      terser: 5.31.6
+      webpack: 5.96.1(esbuild@0.23.1)
+    optionalDependencies:
+      esbuild: 0.23.1
+    optional: true
+
   terser-webpack-plugin@5.3.10(webpack@5.96.1):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -17138,6 +17266,34 @@ snapshots:
       - supports-color
       - vue
 
+  unocss@0.64.0(@unocss/webpack@0.64.0(rollup@4.50.2)(webpack@5.96.1(esbuild@0.23.1)))(postcss@8.5.6)(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3)):
+    dependencies:
+      '@unocss/astro': 0.64.0(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3))
+      '@unocss/cli': 0.64.0(rollup@4.50.2)
+      '@unocss/core': 0.64.0
+      '@unocss/postcss': 0.64.0(postcss@8.5.6)
+      '@unocss/preset-attributify': 0.64.0
+      '@unocss/preset-icons': 0.64.0
+      '@unocss/preset-mini': 0.64.0
+      '@unocss/preset-tagify': 0.64.0
+      '@unocss/preset-typography': 0.64.0
+      '@unocss/preset-uno': 0.64.0
+      '@unocss/preset-web-fonts': 0.64.0
+      '@unocss/preset-wind': 0.64.0
+      '@unocss/transformer-attributify-jsx': 0.64.0
+      '@unocss/transformer-compile-class': 0.64.0
+      '@unocss/transformer-directives': 0.64.0
+      '@unocss/transformer-variant-group': 0.64.0
+      '@unocss/vite': 0.64.0(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3))
+    optionalDependencies:
+      '@unocss/webpack': 0.64.0(rollup@4.50.2)(webpack@5.96.1(esbuild@0.23.1))
+      vite: 7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
+    transitivePeerDependencies:
+      - postcss
+      - rollup
+      - supports-color
+      - vue
+
   unocss@0.64.0(@unocss/webpack@0.64.0(rollup@4.50.2)(webpack@5.96.1))(postcss@8.5.6)(rollup@4.50.2)(vite@5.4.10(@types/node@24.5.2)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6))(vue@3.5.21(typescript@5.6.3)):
     dependencies:
       '@unocss/astro': 0.64.0(rollup@4.50.2)(vite@5.4.10(@types/node@24.5.2)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6))(vue@3.5.21(typescript@5.6.3))
@@ -17160,34 +17316,6 @@ snapshots:
     optionalDependencies:
       '@unocss/webpack': 0.64.0(rollup@4.50.2)(webpack@5.96.1)
       vite: 5.4.10(@types/node@24.5.2)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)
-    transitivePeerDependencies:
-      - postcss
-      - rollup
-      - supports-color
-      - vue
-
-  unocss@0.64.0(@unocss/webpack@0.64.0(rollup@4.50.2)(webpack@5.96.1))(postcss@8.5.6)(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3)):
-    dependencies:
-      '@unocss/astro': 0.64.0(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3))
-      '@unocss/cli': 0.64.0(rollup@4.50.2)
-      '@unocss/core': 0.64.0
-      '@unocss/postcss': 0.64.0(postcss@8.5.6)
-      '@unocss/preset-attributify': 0.64.0
-      '@unocss/preset-icons': 0.64.0
-      '@unocss/preset-mini': 0.64.0
-      '@unocss/preset-tagify': 0.64.0
-      '@unocss/preset-typography': 0.64.0
-      '@unocss/preset-uno': 0.64.0
-      '@unocss/preset-web-fonts': 0.64.0
-      '@unocss/preset-wind': 0.64.0
-      '@unocss/transformer-attributify-jsx': 0.64.0
-      '@unocss/transformer-compile-class': 0.64.0
-      '@unocss/transformer-directives': 0.64.0
-      '@unocss/transformer-variant-group': 0.64.0
-      '@unocss/vite': 0.64.0(rollup@4.50.2)(vite@7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0))(vue@3.5.21(typescript@5.8.3))
-    optionalDependencies:
-      '@unocss/webpack': 0.64.0(rollup@4.50.2)(webpack@5.96.1)
-      vite: 7.1.5(@types/node@24.5.2)(jiti@2.5.1)(lightningcss@1.30.1)(sass@1.77.5)(terser@5.31.6)(tsx@4.19.2)(yaml@2.7.0)
     transitivePeerDependencies:
       - postcss
       - rollup
@@ -17982,6 +18110,37 @@ snapshots:
       - uglify-js
     optional: true
 
+  webpack@5.96.1(esbuild@0.23.1):
+    dependencies:
+      '@types/eslint-scope': 3.7.7
+      '@types/estree': 1.0.8
+      '@webassemblyjs/ast': 1.14.1
+      '@webassemblyjs/wasm-edit': 1.14.1
+      '@webassemblyjs/wasm-parser': 1.14.1
+      acorn: 8.15.0
+      browserslist: 4.26.2
+      chrome-trace-event: 1.0.4
+      enhanced-resolve: 5.18.3
+      es-module-lexer: 1.7.0
+      eslint-scope: 5.1.1
+      events: 3.3.0
+      glob-to-regexp: 0.4.1
+      graceful-fs: 4.2.11
+      json-parse-even-better-errors: 2.3.1
+      loader-runner: 4.3.0
+      mime-types: 2.1.35
+      neo-async: 2.6.2
+      schema-utils: 3.3.0
+      tapable: 2.2.1
+      terser-webpack-plugin: 5.3.10(esbuild@0.23.1)(webpack@5.96.1(esbuild@0.23.1))
+      watchpack: 2.4.2
+      webpack-sources: 3.2.3
+    transitivePeerDependencies:
+      - '@swc/core'
+      - esbuild
+      - uglify-js
+    optional: true
+
   whatwg-encoding@3.1.1:
     dependencies:
       iconv-lite: 0.6.3
@@ -18092,6 +18251,8 @@ snapshots:
 
   ws@8.18.0: {}
 
+  ws@8.18.3: {}
+
   xlsx@0.18.5:
     dependencies:
       adler-32: 1.3.1
@@ -18174,5 +18335,7 @@ snapshots:
       readable-stream: 4.7.0
 
   zod@3.23.8: {}
+
+  zod@4.1.9: {}
 
   zwitch@2.0.4: {}
