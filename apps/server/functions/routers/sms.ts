@@ -7,7 +7,7 @@ import type { DataBaseEnvBindings } from '@/utils/db'
 
 // Extend existing EnvConfig with required SMS related bindings (not yet in db.ts)
 interface SmsEnvBindings extends DataBaseEnvBindings {
-  HOOK_SECRET: string
+  SUPABASE_HOOK_SECRET: string
   TENCENT_SECRET_ID: string
   TENCENT_SECRET_KEY: string
   TENCENT_SMS_SDK_APP_ID: string
@@ -167,7 +167,7 @@ sms.post('/', async (c: SmsContext) => {
     const rawBody = await c.req.text()
     const headers = Object.fromEntries(c.req.raw.headers.entries())
 
-    const hookSecretRaw = getEnvOrThrow(c, 'HOOK_SECRET')
+    const hookSecretRaw = getEnvOrThrow(c, 'SUPABASE_HOOK_SECRET')
     const base64Secret = hookSecretRaw.startsWith('v1,whsec_') ? hookSecretRaw.replace('v1,whsec_', '') : hookSecretRaw
 
     let event: SupabaseSmsWebhookEvent
