@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
-import type { EnvConfig } from '@/utils/db'
+import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseClient } from '@/utils/db'
 
-const user = new Hono<{ Bindings: EnvConfig }>()
+const user = new Hono<{ Bindings: DataBaseEnvBindings }>()
 
 user.post('/', async (c) => {
   try {
@@ -14,9 +14,9 @@ user.post('/', async (c) => {
     }
     return c.json(createSuccessResponse(data, '获取成功'))
   }
-  catch (err: any) {
-    const message = err?.message || '服务器内部错误'
-    return c.json(createErrorResponse(message, 500), 500)
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })
 

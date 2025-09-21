@@ -12,6 +12,7 @@
     "hono": "^4.7.10",
     "marked": "^15.0.12",
     "marked-highlight": "^2.2.1",
+    "standardwebhooks": "^1.0.0",
     "zod": "^4.1.9"
   },
   "devDependencies": {

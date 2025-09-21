@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 // import { ipRestriction } from 'hono/ip-restriction';
 import type { KVNamespace } from './env'
-import { book, ssr, upload, user } from './routers/index'
+import { book, sms, ssr, upload, user } from './routers/index'
 
 declare global {
   let my_kv: KVNamespace
@@ -15,6 +15,7 @@ app.route('/book', book)
 app.route('/upload', upload)
 app.route('/ssr', ssr)
 app.route('/user', user)
+app.route('/sms', sms)
 
 // IP restriction middleware (optional)
 // app.use(
@@ -117,6 +118,7 @@ app.notFound(async (c) => {
       })
     }
   }
+  // eslint-disable-next-line unused-imports/no-unused-vars
   catch (error) {
     return notFound(c)
   }

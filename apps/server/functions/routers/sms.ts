@@ -1,0 +1,205 @@
+import { Webhook } from 'standardwebhooks'
+import { type Context, Hono } from 'hono'
+import { createErrorResponse, createSuccessResponse } from '@/utils/response'
+import type { DataBaseEnvBindings } from '@/utils/db'
+
+// ---- Types -----------------------------------------------------------------
+
+// Extend existing EnvConfig with required SMS related bindings (not yet in db.ts)
+interface SmsEnvBindings extends DataBaseEnvBindings {
+  HOOK_SECRET: string
+  TENCENT_SECRET_ID: string
+  TENCENT_SECRET_KEY: string
+  TENCENT_SMS_SDK_APP_ID: string
+  TENCENT_SMS_SIGN: string
+  TENCENT_SMS_TEMPLATE_ID: string
+  // future: RATE_LIMIT_WINDOW?: string; RATE_LIMIT_MAX?: string
+}
+
+// Hono context type for this router
+type SmsContext = Context<{ Bindings: SmsEnvBindings }>
+
+// Supabase send-sms webhook (minimal shape we rely on)
+interface SupabaseSmsWebhookEvent {
+  user?: { phone?: string }
+  sms?: { otp?: string }
+  // passthrough unknown fields
+  [k: string]: unknown
+}
+
+// Tencent SMS request payload (subset we construct)
+interface TencentSmsPayload {
+  SmsSdkAppId: string
+  SignName: string
+  TemplateId: string
+  TemplateParamSet: [string]
+  PhoneNumberSet: string[]
+}
+
+// Tencent SMS single send status item
+interface TencentSendStatus {
+  Code?: string
+  Message?: string
+  SerialNo?: string
+  PhoneNumber?: string
+  Fee?: number
+  SessionContext?: string
+}
+
+// Tencent SMS API response (partial)
+interface TencentSmsResponse {
+  Response?: {
+    SendStatusSet?: TencentSendStatus[]
+    Error?: { Code?: string, Message?: string }
+    RequestId?: string
+  }
+  [k: string]: unknown
+}
+
+// Supabase Auth send-sms Hook -> 短信桥接（腾讯云短信）
+// 环境变量：
+//  - HOOK_SECRET (Supabase 提供，可能形如 v1,whsec_xxx)
+//  - TENCENT_SECRET_ID
+//  - TENCENT_SECRET_KEY
+//  - TENCENT_SMS_SDK_APP_ID (SmsSdkAppId)
+//  - TENCENT_SMS_SIGN (SignName)
+//  - TENCENT_SMS_TEMPLATE_ID (TemplateId)
+// 可选(未来)：RATE_LIMIT_WINDOW / RATE_LIMIT_MAX、LOG_LEVEL 等
+
+const sms = new Hono<{ Bindings: SmsEnvBindings }>()
+
+function getEnvOrThrow(c: SmsContext, key: keyof SmsEnvBindings): string {
+  const v = c.env?.[key]
+  if (!v)
+    throw new Error(`Environment variable ${String(key)} is not set`)
+  return v as string
+}
+
+function sha256Hex(str: string) {
+  const encoder = new TextEncoder()
+  return crypto.subtle.digest('SHA-256', encoder.encode(str)).then((buf) => {
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  })
+}
+
+async function hmac(key: ArrayBuffer | Uint8Array | string, data: string) {
+  const enc = new TextEncoder()
+  const rawKey = typeof key === 'string' ? enc.encode(key) : key instanceof Uint8Array ? key : new Uint8Array(key)
+  const cryptoKey = await crypto.subtle.importKey('raw', rawKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data))
+  return new Uint8Array(sig)
+}
+
+function toHex(u8: Uint8Array) {
+  return Array.from(u8).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Tencent Cloud TC3-HMAC-SHA256 签名
+async function signTc3(secretId: string, secretKey: string, service: string, host: string, action: string, version: string, region: string, payload: TencentSmsPayload) {
+  const timestamp = Math.floor(Date.now() / 1000)
+  const date = new Date(timestamp * 1000).toISOString().slice(0, 10)
+  const httpRequestMethod = 'POST'
+  const canonicalUri = '/'
+  const canonicalQueryString = ''
+  const canonicalHeaders = `content-type:application/json; charset=utf-8\nhost:${host}\n` // content-type 必须小写
+  const signedHeaders = 'content-type;host'
+  const body = JSON.stringify(payload)
+  const hashedRequestPayload = await sha256Hex(body)
+  const canonicalRequest = `${httpRequestMethod}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${hashedRequestPayload}`
+  const algorithm = 'TC3-HMAC-SHA256'
+  const credentialScope = `${date}/${service}/tc3_request`
+  const hashedCanonicalRequest = await sha256Hex(canonicalRequest)
+  const stringToSign = `${algorithm}\n${timestamp}\n${credentialScope}\n${hashedCanonicalRequest}`
+  const secretDate = await hmac(`TC3${secretKey}`, date)
+  const secretService = await hmac(secretDate, service)
+  const secretSigning = await hmac(secretService, 'tc3_request')
+  const signatureBytes = await hmac(secretSigning, stringToSign)
+  const signature = toHex(signatureBytes)
+  const authorization = `${algorithm} Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
+  return { authorization, timestamp }
+}
+
+async function sendTencentSms(c: SmsContext, phone: string, code: string): Promise<TencentSmsResponse> {
+  const SECRET_ID = getEnvOrThrow(c, 'TENCENT_SECRET_ID')
+  const SECRET_KEY = getEnvOrThrow(c, 'TENCENT_SECRET_KEY')
+  const SDK_APP_ID = getEnvOrThrow(c, 'TENCENT_SMS_SDK_APP_ID')
+  const SIGN_NAME = getEnvOrThrow(c, 'TENCENT_SMS_SIGN')
+  const TEMPLATE_ID = getEnvOrThrow(c, 'TENCENT_SMS_TEMPLATE_ID')
+
+  const service = 'sms'
+  const host = 'sms.tencentcloudapi.com'
+  const action = 'SendSms'
+  const version = '2021-01-11'
+  const region = 'ap-guangzhou'
+
+  // 腾讯要求 E.164 格式，例如 +8613711112222
+  const phoneNumberSet = [/^1\d{10}$/.test(phone) ? `+86${phone}` : phone]
+
+  const payload: TencentSmsPayload = {
+    SmsSdkAppId: SDK_APP_ID,
+    SignName: SIGN_NAME,
+    TemplateId: TEMPLATE_ID,
+    TemplateParamSet: [code],
+    PhoneNumberSet: phoneNumberSet,
+  }
+
+  const { authorization, timestamp } = await signTc3(SECRET_ID, SECRET_KEY, service, host, action, version, region, payload)
+
+  const resp = await fetch(`https://${host}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Host': host,
+      'X-TC-Action': action,
+      'X-TC-Version': version,
+      'X-TC-Region': region,
+      'X-TC-Timestamp': String(timestamp),
+      'Authorization': authorization,
+    },
+    body: JSON.stringify(payload),
+  })
+  const data: TencentSmsResponse = await resp.json().catch(() => ({} as TencentSmsResponse))
+  return data
+}
+
+sms.post('/', async (c: SmsContext) => {
+  try {
+    const rawBody = await c.req.text()
+    const headers = Object.fromEntries(c.req.raw.headers.entries())
+
+    const hookSecretRaw = getEnvOrThrow(c, 'HOOK_SECRET')
+    const base64Secret = hookSecretRaw.startsWith('v1,whsec_') ? hookSecretRaw.replace('v1,whsec_', '') : hookSecretRaw
+
+    let event: SupabaseSmsWebhookEvent
+    try {
+      const wh = new Webhook(base64Secret)
+      // standardwebhooks typings are loose; cast to our minimal shape
+      event = wh.verify(rawBody, headers) as SupabaseSmsWebhookEvent
+    }
+    catch {
+      return c.json(createErrorResponse('Webhook 签名校验失败', 401), 401)
+    }
+
+    const phone = event?.user?.phone
+    const code = event?.sms?.otp
+    if (!phone || !code)
+      return c.json(createErrorResponse('缺少 phone 或 otp', 400), 400)
+    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone))
+      return c.json(createErrorResponse('手机号格式不正确', 400), 400)
+
+    const result = await sendTencentSms(c, phone, code)
+
+    const status = result?.Response?.SendStatusSet?.[0]
+    if (status?.Code === 'Ok') {
+      return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo }, '短信发送成功'))
+    }
+
+    return c.json(createErrorResponse(status?.Message || result?.Response?.Error?.Message || '短信发送失败', 500, { tencentResult: result }), 500)
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+export default sms
