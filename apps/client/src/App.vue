@@ -8,12 +8,12 @@ const router = useRouter()
 const activeMenu = ref('0')
 const menuItems = [
   {
-    icon: 'Guide',
+    icon: 'HomeFilled',
     label: '工具',
     clickHandler: () => {},
   },
   {
-    icon: 'Connection',
+    icon: 'WalletFilled',
     label: '代理中心',
     clickHandler: () => {},
   },
@@ -109,7 +109,7 @@ function goToLogin() {
 
 .main-content {
   padding: 0;
-  height: calc(100% - 64px);
+  height: calc(100vh - 64px);
   overflow-y: auto;
 }
 
