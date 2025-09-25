@@ -67,9 +67,9 @@ async function copyToClipboard(text: string) {
 </script>
 
 <template>
-  <div class=" bg-gray-50">
-    <div class="px-4 sm:px-6 lg:px-8 py-6">
-      <el-row :gutter="24">
+  <div style="height: 100%">
+    <div class="px-4 sm:px-6 lg:px-8 py-3" style="height: 100%">
+      <el-row :gutter="24" style="height: calc(100% - 20px)">
         <!-- Left Sidebar -->
         <el-col :lg="6" :md="8" :sm="24">
           <div class="space-y-4">

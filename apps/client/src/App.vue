@@ -2,10 +2,12 @@
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Discount, User } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
 const activeMenu = ref('0')
+const isLoggedIn = ref(true)
 const menuItems = [
   {
     icon: 'HomeFilled',
@@ -19,14 +21,14 @@ const menuItems = [
   },
   {
     icon: 'UserFilled',
-    label: '登录/注册',
+    label: '登录',
     clickHandler: goToLogin,
   },
 ]
 
 // 监听路由变化更新菜单激活状态
 watch(
-  () => route.path,
+  () => route?.path,
   (newPath) => {
     switch (newPath) {
       case '/':
@@ -67,6 +69,35 @@ function goToLogin() {
   activeMenu.value = '2'
   router.push('/login')
 }
+function handleLogout() {
+  ElMessageBox.confirm(
+    '确认要退出登录吗？',
+    '提示',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    },
+  )
+    .then(() => {
+      // 执行退出登录逻辑
+      isLoggedIn.value = false
+      router.push('/login')
+      ElMessage({
+        type: 'success',
+        message: '已成功退出登录',
+      })
+    })
+    .catch(() => {
+      // 用户点击取消，不做任何操作
+    })
+}
+function goToUserCenter() {
+  router.push('/userCenter')
+}
+function goToRecharge() {
+  router.push('/balanceRecharge')
+}
 </script>
 
 <template>
@@ -81,15 +112,48 @@ function goToLogin() {
         星辰写作
       </h1>
       <div class="flex-grow" />
-      <el-menu-item
-        v-for="(item, index) in menuItems" :key="index" :index="index.toString()"
-        @click="item.clickHandler"
-      >
-        <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === index.toString() }">
-          <component :is="item.icon" />
-        </el-icon>
-        {{ item.label }}
-      </el-menu-item>
+      <template v-for="(item, index) in menuItems" :key="index">
+        <!-- 非登录菜单项正常显示 -->
+        <el-menu-item
+          v-if="index !== 2 || !isLoggedIn"
+          :index="index.toString()"
+          @click="item.clickHandler"
+        >
+          <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === index.toString() }">
+            <component :is="item.icon" />
+          </el-icon>
+          {{ item.label }}
+        </el-menu-item>
+
+        <!-- 登录后显示用户下拉菜单 -->
+        <el-sub-menu
+          v-else
+          :index="index.toString()"
+          popper-class="user-dropdown"
+        >
+          <template #title>
+            <el-icon class="menu-icon">
+              <User />
+            </el-icon>
+            <!-- {{ userPhone }} -->
+          </template>
+
+          <el-menu-item @click="goToUserCenter">
+            <el-icon><User /></el-icon>
+            个人中心
+          </el-menu-item>
+
+          <el-menu-item @click="goToRecharge">
+            <el-icon><Discount /></el-icon>
+            余额：{{ 1000 }}元
+          </el-menu-item>
+
+          <el-menu-item @click="handleLogout">
+            <el-icon><SwitchButton /></el-icon>
+            退出登录
+          </el-menu-item>
+        </el-sub-menu>
+      </template>
     </el-menu>
 
     <!-- 内容区域 -->
@@ -112,6 +176,8 @@ function goToLogin() {
   padding: 0;
   height: calc(100vh - 64px);
   overflow-y: auto;
+  background: linear-gradient(to right, #e6f3ff, #ffffff, #e6f3ff);
+
 }
 
 /* 保持与Home.vue一致的菜单样式 */

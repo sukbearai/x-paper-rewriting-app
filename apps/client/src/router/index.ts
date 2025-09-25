@@ -4,6 +4,7 @@ import Home from '../page/Home.vue'
 import SmsAuth from '../page/SmsAuth.vue'
 import Proxy from '../page/Proxy.vue'
 import UserCenter from '../page/UserCenter.vue'
+import BalanceRecharge from '../page/BalanceRecharge.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -30,10 +31,16 @@ const routes: Array<RouteRecordRaw> = [
     meta: { roles: ['user', 'admin', 'guest'] },
   },
   {
-    path: '/user',
+    path: '/userCenter',
     name: 'UserCenter',
     component: UserCenter,
-    meta: { roles: ['user', 'admin'] },
+    meta: { roles: ['user', 'admin', 'guest'] },
+  },
+  {
+    path: '/balanceRecharge',
+    name: 'BalanceRecharge',
+    component: BalanceRecharge,
+    meta: { roles: ['user', 'admin', 'guest'] },
   },
 ]
 

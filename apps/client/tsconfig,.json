@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "types": ["element-plus/global"]
+    "types": ["element-plus/global", "pinia"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "files": [],
   "references": [
