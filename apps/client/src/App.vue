@@ -10,12 +10,12 @@ const menuItems = [
   {
     icon: 'HomeFilled',
     label: '工具',
-    clickHandler: () => {},
+    clickHandler: () => { },
   },
   {
     icon: 'WalletFilled',
     label: '代理中心',
-    clickHandler: () => {},
+    clickHandler: () => { },
   },
   {
     icon: 'UserFilled',
@@ -73,19 +73,16 @@ function goToLogin() {
   <div id="app">
     <!-- 使用Home.vue中的菜单样式 -->
     <el-menu
-      :default-active="activeMenu" class="el-menu-demo bg-white shadow-md h-16 border-b border-gray-200"
-      mode="horizontal" :ellipsis="false" text-color="#606266" active-text-color="#409EFF"
-      @select="handleMenuSelect"
+      :default-active="activeMenu" class="el-menu-demo h-16 border-b border-gray-200 gradient-bg"
+      mode="horizontal" :ellipsis="false" text-color="#606266" active-text-color="#409EFF" @select="handleMenuSelect"
     >
-      <h1 class="text-xl font-bold text-gray-900 flex items-center gap-1 pl-6">
+      <h1 class="text-xl font-bold text-gray-900 flex items-center gap-1 pl-6" style="font-family: 'Ma Shan Zheng', cursive;">
         <svg-icon name="xingxi" style="height: 34px; width: 34px;" />
         星辰写作
       </h1>
       <div class="flex-grow" />
       <el-menu-item
-        v-for="(item, index) in menuItems"
-        :key="index"
-        :index="index.toString()"
+        v-for="(item, index) in menuItems" :key="index" :index="index.toString()"
         @click="item.clickHandler"
       >
         <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === index.toString() }">
@@ -107,6 +104,10 @@ function goToLogin() {
   height: 100%;
 }
 
+.gradient-bg {
+  background: linear-gradient(to right, #f8f9fa, rgba(248, 249, 250, 0.95));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
 .main-content {
   padding: 0;
   height: calc(100vh - 64px);
@@ -117,6 +118,7 @@ function goToLogin() {
 .el-menu-demo {
   height: 64px;
 }
+
 .menu-icon {
   font-size: 20px;
   margin-right: 4px;
