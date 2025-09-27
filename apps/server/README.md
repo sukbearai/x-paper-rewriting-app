@@ -1,313 +1,313 @@
-# EdgeOne Pages Hono Application
+# EdgeOne Pages Hono 应用程序
 
-This is a modern Web application built on the [Hono](https://hono.dev/) framework, deployed on the EdgeOne Pages platform.
+这是一个基于 [Hono](https://hono.dev/) 框架构建的现代 Web 应用程序，部署在 EdgeOne Pages 平台上。
 
-Live demo: https://hono.edgeone.app
+在线演示：https://hono.edgeone.site
 
-## Deploy
+## 部署
 
-[![Deploy with EdgeOne Pages](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?from=github&template=hono)
+[![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://console.cloud.tencent.com/edgeone/pages/new?template=hono)
 
-## 🚀 Project Features
+## 🚀 项目特性
 
-- **Modular Route Design** - Clear route organization structure
-- **Server-Side Rendering** - Page rendering using JSX and HTML templates
-- **File Upload** - File upload functionality support
-- **Book Management** - Example CRUD operations
-- **Error Handling** - Beautiful 404 and 500 error pages
-- **TypeScript Support** - Complete type definitions
+- **模块化路由设计** - 清晰的路由组织结构
+- **服务端渲染** - 使用 JSX 和 HTML 模板进行页面渲染
+- **文件上传** - 文件上传功能支持
+- **图书管理** - 示例 CRUD 操作
+- **错误处理** - 精美的 404 和 500 错误页面
+- **TypeScript 支持** - 完整的类型定义
 
-## 📁 Project Structure
+## 📁 项目结构
 
 ```
 functions/
-├── index.tsx              # Main entry file
-├── [[default]].ts         # EdgeOne Functions default route
-├── env.ts                 # Environment type definitions
-├── components/            # Components directory
-│   └── Layout.tsx         # Page layout component
-└── routers/              # Route modules
-    ├── index.ts          # Unified route exports
-    ├── book.tsx          # Book related routes
-    ├── ssr.tsx           # Server-side rendering routes
-    └── upload.ts         # File upload routes
+├── index.tsx              # 主入口文件
+├── [[default]].ts         # EdgeOne Functions 默认路由
+├── env.ts                 # 环境类型定义
+├── components/            # 组件目录
+│   └── Layout.tsx         # 页面布局组件
+└── routers/              # 路由模块
+    ├── index.ts          # 统一路由导出
+    ├── book.tsx          # 图书相关路由
+    ├── ssr.tsx           # 服务端渲染路由
+    └── upload.ts         # 文件上传路由
 ```
 
-## 🛣️ Route Details
+## 🛣️ 路由详情
 
-### Static Routes
+### 静态路由
 
-| Path | Method | Description |
+| 路径 | 方法 | 描述 |
 |------|------|------|
-| `/` | GET | Static home page, serves `index.html` from public directory |
+| `/` | GET | 静态首页，从 public 目录提供 `index.html` |
 
-**Examples:**
-- `https://hono.edgeone.app/` - Static home page
+**示例：**
+- `https://hono.edgeone.app/` - 静态首页
 
-### SSR Routes (`/ssr`)
+### SSR 路由 (`/ssr`)
 
-| Path | Method | Description |
+| 路径 | 方法 | 描述 |
 |------|------|------|
-| `/ssr/:name` | GET | Dynamic SSR page, displays personalized welcome message |
+| `/ssr/:name` | GET | 动态 SSR 页面，显示个性化欢迎消息 |
 
-**Examples:**
-- `https://hono.edgeone.app/ssr/john` - Shows "Hello john!" page
+**示例：**
+- `https://hono.edgeone.app/ssr/john` - 显示 "Hello john!" 页面
 
-### Book Management Routes (`/book`)
+### 图书管理路由 (`/book`)
 
-| Path | Method | Description |
+| 路径 | 方法 | 描述 |
 |------|------|------|
-| `/book` | GET | Get all books list page |
-| `/book/:id` | GET | Get specific book details page |
-| `/book` | POST | Create new book (API endpoint) |
+| `/book` | GET | 获取所有图书列表页面 |
+| `/book/:id` | GET | 获取特定图书详情页面 |
+| `/book` | POST | 创建新图书（API 端点） |
 
-**Examples:**
-- `https://hono.edgeone.app/book` - Book list
-- `https://hono.edgeone.app/book/1` - Details of the first book
+**示例：**
+- `https://hono.edgeone.app/book` - 图书列表
+- `https://hono.edgeone.app/book/1` - 第一本书的详情
 
-**Create Book API Request Example:**
+**创建图书 API 请求示例：**
 ```bash
 curl -X POST https://hono.edgeone.app/book \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "New Book Title",
-    "author": "Author Name"
+    "title": "新书标题",
+    "author": "作者姓名"
   }'
 ```
 
-**Supported Features:**
-- CORS cross-origin support
+**支持的功能：**
+- CORS 跨域支持
 
-### File Upload Routes (`/upload`)
+### 文件上传路由 (`/upload`)
 
-| Path | Method | Description |
+| 路径 | 方法 | 描述 |
 |------|------|------|
-| `/upload` | POST | File upload endpoint |
+| `/upload` | POST | 文件上传端点 |
 
-**Example:**
+**示例：**
 ```bash
 curl -X POST https://hono.edgeone.app/upload \
   -F "file=@example.txt"
 ```
 
-## 📖 Detailed API Documentation
+## 📖 详细 API 文档
 
-### Basic Information
+### 基本信息
 
 - **Base URL**: `https://hono.edgeone.app`
 - **Content-Type**: `application/json`
-- **Encoding**: UTF-8
+- **编码**: UTF-8
 
-### API Details
+### API 详情
 
-#### 1. File Upload
+#### 1. 文件上传
 
-**Endpoint**: `POST /upload`
+**端点**: `POST /upload`
 
-**Description**: Upload files to server
+**描述**: 上传文件到服务器
 
-**Request Format**: `multipart/form-data`
+**请求格式**: `multipart/form-data`
 
-**Request Parameters**:
-- `file` (required): File to upload
+**请求参数**:
+- `file` (必需): 要上传的文件
 
-**curl Request Examples**:
+**curl 请求示例**:
 ```bash
-# Upload text file
+# 上传文本文件
 curl -X POST https://hono.edgeone.app/upload \
   -F "file=@/path/to/your/file.txt"
 
-# Upload image file
+# 上传图片文件
 curl -X POST https://hono.edgeone.app/upload \
   -F "file=@/path/to/image.jpg"
 
-# Upload with custom filename
+# 上传并自定义文件名
 curl -X POST https://hono.edgeone.app/upload \
   -F "file=@document.pdf;filename=my-document.pdf"
 ```
 
-**Response Example**:
+**响应示例**:
 ```json
 {
   "success": true,
-  "message": "File uploaded successfully",
+  "message": "文件上传成功",
   "fileName": "file.txt"
 }
 ```
 
-**Error Response**:
+**错误响应**:
 ```json
 {
   "success": false,
-  "message": "No file provided"
+  "message": "未提供文件"
 }
 ```
 
-#### 2. Create Book
+#### 2. 创建图书
 
-**Endpoint**: `POST /book`
+**端点**: `POST /book`
 
-**Description**: Create new book record
+**描述**: 创建新的图书记录
 
-**Request Parameters**:
+**请求参数**:
 ```json
 {
-  "title": "Book Title",
-  "author": "Author Name"
+  "title": "图书标题",
+  "author": "作者姓名"
 }
 ```
 
-**Parameter Description**:
-- `title` (optional): Book title, defaults to "Untitled"
-- `author` (optional): Author name, defaults to "Unknown"
+**参数说明**:
+- `title` (可选): 图书标题，默认为 "Untitled"
+- `author` (可选): 作者姓名，默认为 "Unknown"
 
-**curl Request Examples**:
+**curl 请求示例**:
 ```bash
-# Create book with complete information
+# 创建包含完整信息的图书
 curl -X POST https://hono.edgeone.app/book \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Dream of the Red Chamber",
-    "author": "Cao Xueqin"
+    "title": "红楼梦",
+    "author": "曹雪芹"
   }'
 
-# Create book with only title
+# 只创建标题的图书
 curl -X POST https://hono.edgeone.app/book \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "New Book Title"
+    "title": "新书标题"
   }'
 
-# Create empty book (using defaults)
+# 创建空图书（使用默认值）
 curl -X POST https://hono.edgeone.app/book \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
 
-**Response Example**:
+**响应示例**:
 ```json
 {
   "success": true,
-  "message": "Book created successfully",
+  "message": "图书创建成功",
   "book": {
     "id": "abc123def",
-    "title": "Book Title",
-    "author": "Author Name",
+    "title": "图书标题",
+    "author": "作者姓名",
     "createdAt": "2023-12-01T10:00:00.000Z"
   }
 }
 ```
 
-#### 3. Get Book Information
+#### 3. 获取图书信息
 
-**curl Request Examples**:
+**curl 请求示例**:
 ```bash
-# Get all books list
+# 获取所有图书列表
 curl -X GET https://hono.edgeone.app/book
 
-# Get specific book details
+# 获取特定图书详情
 curl -X GET https://hono.edgeone.app/book/1
 
-# Get personal page
+# 获取个人页面
 curl -X GET https://hono.edgeone.app/john
 ```
 
-### Error Code Description
+### 错误码说明
 
-| Error Code | HTTP Status Code | Description |
+| 错误码 | HTTP 状态码 | 描述 |
 |-----------|-------------|------|
-| `VALIDATION_ERROR` | 400 | Request parameter validation failed |
-| `FILE_UPLOAD_ERROR` | 400 | File upload failed |
-| `NOT_FOUND` | 404 | Resource not found |
-| `INTERNAL_ERROR` | 500 | Internal server error |
+| `VALIDATION_ERROR` | 400 | 请求参数验证失败 |
+| `FILE_UPLOAD_ERROR` | 400 | 文件上传失败 |
+| `NOT_FOUND` | 404 | 资源未找到 |
+| `INTERNAL_ERROR` | 500 | 内部服务器错误 |
 
-### Rate Limiting
+### 频率限制
 
-- All API endpoints currently have no rate limiting
-- Client-side request frequency control is recommended
+- 目前所有 API 端点均无频率限制
+- 建议客户端进行请求频率控制
 
-### CORS Support
+### CORS 支持
 
-All API endpoints support cross-origin access, response headers include:
+所有 API 端点均支持跨域访问，响应头包含：
 - `Access-Control-Allow-Origin: *`
 - `Access-Control-Allow-Methods: POST, GET, OPTIONS`
 - `Access-Control-Allow-Headers: Content-Type, Authorization`
 
-## 🔧 Development
+## 🔧 开发
 
-### Local Development
+### 本地开发
 
 ```bash
-# Install dependencies
+# 安装依赖
 npm install
 
-# Start development server
+# 启动开发服务器
 npm run dev
 ```
 
-### Deployment
+### 部署
 
 ```bash
-# Deploy to EdgeOne
+# 部署到 EdgeOne
 npm run deploy
 ```
 
-## 🌐 Environment Variables
+## 🌐 环境变量
 
-The project uses the following environment variables and global objects:
+项目使用以下环境变量和全局对象：
 
-- `my_kv` - KV storage instance for data persistence
+- `my_kv` - KV 存储实例，用于数据持久化
 
-## 🛡️ Security Features
+## 🛡️ 安全特性
 
-### IP Restriction (Optional)
+### IP 限制（可选）
 
-The project includes IP restriction middleware configuration (commented by default), which can limit access sources:
+项目包含 IP 限制中间件配置（默认注释），可以限制访问来源：
 
 ```typescript
-app.use('*', ipRestriction(/* configuration */));
+app.use('*', ipRestriction(/* 配置 */))
 ```
 
-## 📝 API Response Format
+## 📝 API 响应格式
 
-### Success Response
+### 成功响应
 
 ```json
 {
   "success": true,
-  "message": "Operation successful",
+  "message": "操作成功",
   "data": {}
 }
 ```
 
-### Error Response
+### 错误响应
 
 ```json
 {
   "error": "ERROR_CODE",
-  "message": "Error description"
+  "message": "错误描述"
 }
 ```
 
-## 🎨 UI Design
+## 🎨 UI 设计
 
-The project adopts modern UI design:
-- Responsive layout
-- System font stack
-- Card-style design
-- Unified color theme
-- Elegant error pages
+项目采用现代化 UI 设计：
+- 响应式布局
+- 系统字体栈
+- 卡片式设计
+- 统一色彩主题
+- 优雅的错误页面
 
-## 📦 Dependencies
+## 📦 依赖
 
-- **hono** - Web framework
-- **@edgeone/ef-types** - EdgeOne Functions type definitions
-- **edgeone** - EdgeOne CLI tool
+- **hono** - Web 框架
+- **@edgeone/ef-types** - EdgeOne Functions 类型定义
+- **edgeone** - EdgeOne CLI 工具
 
-## 🤝 Contributing
+## 🤝 贡献
 
-Welcome to submit Issues and Pull Requests to improve this project.
+欢迎提交 Issues 和 Pull Requests 来改进这个项目。
 
-## 📄 License
+## �� 许可证
 
 MIT License
