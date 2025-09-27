@@ -27,6 +27,7 @@
     "fs-extra": "catalog:",
     "rimraf": "^6.0.1",
     "unbuild": "catalog:",
+    "vite-plugin-svg-icons": "^2.0.1",
     "vitest": "catalog:"
   }
 }
