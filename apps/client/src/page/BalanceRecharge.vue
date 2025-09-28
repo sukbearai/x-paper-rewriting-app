@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import DragTable from '../components/drag-table.vue'
+import DragTable from '@/components/drag-table.vue'
 
 /* ----- 状态 ----- */
 const amount = ref('')
