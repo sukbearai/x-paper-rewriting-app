@@ -26,3 +26,11 @@ export function createSupabaseClient(env: DataBaseEnvBindings, access_token?: st
     },
   )
 }
+
+export const cookieOptions = {
+  path: '/',
+  maxAge: 60 * 60 * 24 * 7, // 7 days
+  secure: true,
+  sameSite: 'lax',
+  httpOnly: false,
+}
