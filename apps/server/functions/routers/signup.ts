@@ -76,6 +76,18 @@ signup.post('/', async (c) => {
 
     const supabase = createSupabaseClient(c.env)
 
+    const { data: existingProfileByEmail, error: emailCheckError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (emailCheckError)
+      return c.json(createErrorResponse(emailCheckError.message || '注册失败', 500), 500)
+
+    if (existingProfileByEmail)
+      return c.json(createErrorResponse('该邮箱已注册，请直接登录', 409), 409)
+
     if (phone) {
       const { error: otpError } = await supabase.auth.verifyOtp({
         phone,
