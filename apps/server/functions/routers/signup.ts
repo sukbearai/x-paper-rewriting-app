@@ -88,6 +88,18 @@ signup.post('/', async (c) => {
     if (existingProfileByEmail)
       return c.json(createErrorResponse('该邮箱已注册，请直接登录', 409), 409)
 
+    const { data: existingProfileByUsername, error: usernameCheckError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle()
+
+    if (usernameCheckError)
+      return c.json(createErrorResponse(usernameCheckError.message || '注册失败', 500), 500)
+
+    if (existingProfileByUsername)
+      return c.json(createErrorResponse('该用户名已被使用', 409), 409)
+
     if (phone) {
       const { error: otpError } = await supabase.auth.verifyOtp({
         phone,
