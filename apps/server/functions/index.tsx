@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 // import { ipRestriction } from 'hono/ip-restriction';
 import type { KVNamespace } from './env'
-import { book, sms, ssr, upload, user } from './routers/index'
+import { book, otp, signup, sms, ssr, upload, user } from './routers/index'
 
 declare global {
   let my_kv: KVNamespace
@@ -16,6 +16,8 @@ app.route('/upload', upload)
 app.route('/ssr', ssr)
 app.route('/user', user)
 app.route('/sms', sms)
+app.route('/signup', signup)
+app.route('/otp', otp)
 
 // IP restriction middleware (optional)
 // app.use(
