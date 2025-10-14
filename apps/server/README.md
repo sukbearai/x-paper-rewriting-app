@@ -175,7 +175,7 @@ curl -X POST https://hono.edgeone.app/book \
 curl -X POST https://hono.edgeone.app/book \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "新书标题"
+    "title": "标题"
   }'
 
 # 创建空图书（使用默认值）
