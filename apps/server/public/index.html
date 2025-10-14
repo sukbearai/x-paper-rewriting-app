@@ -3,335 +3,175 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EdgeOne Pages Hono Application</title>
+    <title>API 文档</title>
     <link rel="stylesheet" href="./style.css">
   </head>
   <body>
     <div class="container">
-      <h1>EdgeOne Pages Hono Application</h1>
-<p>This is a modern Web application built on the <a href="https://hono.dev/" target="_blank" rel="noopener noreferrer">Hono</a> framework, deployed on the EdgeOne Pages platform.</p>
-<p>Live demo: <a href="https://hono.edgeone.app" target="_blank" rel="noopener noreferrer">https://hono.edgeone.app</a></p>
-<h2>Deploy</h2>
-<p><a href="https://edgeone.ai/pages/new?from=github&template=hono" target="_blank" rel="noopener noreferrer"><img src="https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg" alt="Deploy with EdgeOne Pages" /></a></p>
-<h2>🚀 Project Features</h2>
+      <h1>API 文档</h1>
+<h3>基本信息</h3>
 <ul>
-<li><strong>Modular Route Design</strong> - Clear route organization structure</li>
-<li><strong>Server-Side Rendering</strong> - Page rendering using JSX and HTML templates</li>
-<li><strong>File Upload</strong> - File upload functionality support</li>
-<li><strong>Book Management</strong> - Example CRUD operations</li>
-<li><strong>Error Handling</strong> - Beautiful 404 and 500 error pages</li>
-<li><strong>TypeScript Support</strong> - Complete type definitions</li>
-</ul>
-<h2>📁 Project Structure</h2>
-<pre><code>functions/
-├── index.tsx              # Main entry file
-├── [[default]].ts         # EdgeOne Functions default route
-├── env.ts                 # Environment type definitions
-├── components/            # Components directory
-│   └── Layout.tsx         # Page layout component
-└── routers/              # Route modules
-    ├── index.ts          # Unified route exports
-    ├── book.tsx          # Book related routes
-    ├── ssr.tsx           # Server-side rendering routes
-    └── upload.ts         # File upload routes
-</code></pre>
-<h2>🛣️ Route Details</h2>
-<h3>Static Routes</h3>
-<table>
-<thead>
-<tr>
-<th>Path</th>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>/</code></td>
-<td>GET</td>
-<td>Static home page, serves <code>index.html</code> from public directory</td>
-</tr>
-</tbody></table>
-<p><strong>Examples:</strong></p>
-<ul>
-<li><code>https://hono.edgeone.app/</code> - Static home page</li>
-</ul>
-<h3>SSR Routes (<code>/ssr</code>)</h3>
-<table>
-<thead>
-<tr>
-<th>Path</th>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>/ssr/:name</code></td>
-<td>GET</td>
-<td>Dynamic SSR page, displays personalized welcome message</td>
-</tr>
-</tbody></table>
-<p><strong>Examples:</strong></p>
-<ul>
-<li><code>https://hono.edgeone.app/ssr/john</code> - Shows &quot;Hello john!&quot; page</li>
-</ul>
-<h3>Book Management Routes (<code>/book</code>)</h3>
-<table>
-<thead>
-<tr>
-<th>Path</th>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>/book</code></td>
-<td>GET</td>
-<td>Get all books list page</td>
-</tr>
-<tr>
-<td><code>/book/:id</code></td>
-<td>GET</td>
-<td>Get specific book details page</td>
-</tr>
-<tr>
-<td><code>/book</code></td>
-<td>POST</td>
-<td>Create new book (API endpoint)</td>
-</tr>
-</tbody></table>
-<p><strong>Examples:</strong></p>
-<ul>
-<li><code>https://hono.edgeone.app/book</code> - Book list</li>
-<li><code>https://hono.edgeone.app/book/1</code> - Details of the first book</li>
-</ul>
-<p><strong>Create Book API Request Example:</strong></p>
-<pre><code class="language-bash">curl -X POST https://hono.edgeone.app/book \
-  -H <span class="hljs-string">&quot;Content-Type: application/json&quot;</span> \
-  -d <span class="hljs-string">&#x27;{
-    &quot;title&quot;: &quot;New Book Title&quot;,
-    &quot;author&quot;: &quot;Author Name&quot;
-  }&#x27;</span>
-</code></pre>
-<p><strong>Supported Features:</strong></p>
-<ul>
-<li>CORS cross-origin support</li>
-</ul>
-<h3>File Upload Routes (<code>/upload</code>)</h3>
-<table>
-<thead>
-<tr>
-<th>Path</th>
-<th>Method</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>/upload</code></td>
-<td>POST</td>
-<td>File upload endpoint</td>
-</tr>
-</tbody></table>
-<p><strong>Example:</strong></p>
-<pre><code class="language-bash">curl -X POST https://hono.edgeone.app/upload \
-  -F <span class="hljs-string">&quot;file=@example.txt&quot;</span>
-</code></pre>
-<h2>📖 Detailed API Documentation</h2>
-<h3>Basic Information</h3>
-<ul>
-<li><strong>Base URL</strong>: <code>https://hono.edgeone.app</code></li>
+<li><strong>基本 URL</strong>: <code>https://rewriting.congrongtech.cn/</code></li>
 <li><strong>Content-Type</strong>: <code>application/json</code></li>
-<li><strong>Encoding</strong>: UTF-8</li>
+<li><strong>编码</strong>: UTF-8</li>
 </ul>
-<h3>API Details</h3>
-<h4>1. File Upload</h4>
-<p><strong>Endpoint</strong>: <code>POST /upload</code></p>
-<p><strong>Description</strong>: Upload files to server</p>
-<p><strong>Request Format</strong>: <code>multipart/form-data</code></p>
-<p><strong>Request Parameters</strong>:</p>
+<p>所有接口遵循统一的响应格式：</p>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;响应消息&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
 <ul>
-<li><code>file</code> (required): File to upload</li>
+<li><code>code</code>: 状态码，<code>0</code> 表示成功，其他表示错误。</li>
+<li><code>message</code>: 响应的描述信息。</li>
+<li><code>data</code>: 响应的具体数据。</li>
+<li><code>timestamp</code>: 服务器响应时的时间戳。</li>
 </ul>
-<p><strong>curl Request Examples</strong>:</p>
-<pre><code class="language-bash"><span class="hljs-comment"># Upload text file</span>
-curl -X POST https://hono.edgeone.app/upload \
-  -F <span class="hljs-string">&quot;file=@/path/to/your/file.txt&quot;</span>
-
-<span class="hljs-comment"># Upload image file</span>
-curl -X POST https://hono.edgeone.app/upload \
-  -F <span class="hljs-string">&quot;file=@/path/to/image.jpg&quot;</span>
-
-<span class="hljs-comment"># Upload with custom filename</span>
-curl -X POST https://hono.edgeone.app/upload \
-  -F <span class="hljs-string">&quot;file=@document.pdf;filename=my-document.pdf&quot;</span>
-</code></pre>
-<p><strong>Response Example</strong>:</p>
+<hr>
+<h3>API 详情</h3>
+<h3>1. 发送短信验证码</h3>
+<p><strong>端点</strong>: <code>POST /otp</code></p>
+<p><strong>描述</strong>: 向用户手机发送一次性短信验证码，用于后续操作（如注册）的验证。</p>
+<p><strong>请求体</strong>:</p>
 <pre><code class="language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;success&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;File uploaded successfully&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;fileName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;file.txt&quot;</span>
+  <span class="hljs-attr">&quot;phone&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;+8613800138000&quot;</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
-<p><strong>Error Response</strong>:</p>
-<pre><code class="language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;success&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;No file provided&quot;</span>
-<span class="hljs-punctuation">}</span>
-</code></pre>
-<h4>2. Create Book</h4>
-<p><strong>Endpoint</strong>: <code>POST /book</code></p>
-<p><strong>Description</strong>: Create new book record</p>
-<p><strong>Request Parameters</strong>:</p>
-<pre><code class="language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Book Title&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;author&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Author Name&quot;</span>
-<span class="hljs-punctuation">}</span>
-</code></pre>
-<p><strong>Parameter Description</strong>:</p>
+<p><strong>参数</strong>:</p>
 <ul>
-<li><code>title</code> (optional): Book title, defaults to &quot;Untitled&quot;</li>
-<li><code>author</code> (optional): Author name, defaults to &quot;Unknown&quot;</li>
+<li><code>phone</code> (必需): 用户的手机号码，需符合国际格式（如 <code>+</code> 开头）。</li>
 </ul>
-<p><strong>curl Request Examples</strong>:</p>
-<pre><code class="language-bash"><span class="hljs-comment"># Create book with complete information</span>
-curl -X POST https://hono.edgeone.app/book \
+<p><strong>cURL 示例</strong>:</p>
+<pre><code class="language-bash">curl -X POST https://rewriting.congrongtech.cn/otp \
   -H <span class="hljs-string">&quot;Content-Type: application/json&quot;</span> \
   -d <span class="hljs-string">&#x27;{
-    &quot;title&quot;: &quot;Dream of the Red Chamber&quot;,
-    &quot;author&quot;: &quot;Cao Xueqin&quot;
+    &quot;phone&quot;: &quot;+8613800138000&quot;
   }&#x27;</span>
-
-<span class="hljs-comment"># Create book with only title</span>
-curl -X POST https://hono.edgeone.app/book \
+</code></pre>
+<p><strong>成功响应 (HTTP 200)</strong>:</p>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;验证码发送成功&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+<p><strong>错误响应</strong>:</p>
+<ul>
+<li><strong>HTTP 400 - 请求体或参数错误</strong>:<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;请求体格式错误，应为 JSON&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;手机号格式不正确&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li><strong>HTTP 409 - 手机号已注册</strong>:<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">409</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;该手机号已注册，请直接登录&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li><strong>HTTP 500 - 服务器内部错误</strong>:<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">500</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;验证码发送失败&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+</ul>
+<hr>
+<h3>2. 用户注册</h3>
+<p><strong>端点</strong>: <code>POST /signup</code></p>
+<p><strong>描述</strong>: 使用邮箱、密码等信息注册新用户。如果提供了手机号，则必须同时提供通过 <code>/otp</code> 接口获取的验证码。</p>
+<p><strong>请求体</strong>:</p>
+<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;email&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user@example.com&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;password&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;securepassword&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;username&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;newuser&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;phone&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;+8613800138000&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;otp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;123456&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;inviteCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;optional-code&quot;</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+<p><strong>参数</strong>:</p>
+<ul>
+<li><code>email</code> (必需): 用户的邮箱地址。</li>
+<li><code>password</code> (必需): 密码，长度至少 6 位。</li>
+<li><code>username</code> (必需): 用户名，长度至少 2 位。</li>
+<li><code>phone</code> (可选): 用户的手机号码。</li>
+<li><code>otp</code> (如果提供了 <code>phone</code> 则必需): 通过短信收到的 4-8 位验证码。</li>
+<li><code>inviteCode</code> (可选): 邀请码。</li>
+</ul>
+<p><strong>cURL 示例</strong>:</p>
+<pre><code class="language-bash">curl -X POST https://rewriting.congrongtech.cn/signup \
   -H <span class="hljs-string">&quot;Content-Type: application/json&quot;</span> \
   -d <span class="hljs-string">&#x27;{
-    &quot;title&quot;: &quot;New Book Title&quot;
+    &quot;email&quot;: &quot;user@example.com&quot;,
+    &quot;password&quot;: &quot;securepassword&quot;,
+    &quot;username&quot;: &quot;newuser&quot;,
+    &quot;phone&quot;: &quot;+8613800138000&quot;,
+    &quot;otp&quot;: &quot;123456&quot;
   }&#x27;</span>
-
-<span class="hljs-comment"># Create empty book (using defaults)</span>
-curl -X POST https://hono.edgeone.app/book \
-  -H <span class="hljs-string">&quot;Content-Type: application/json&quot;</span> \
-  -d <span class="hljs-string">&#x27;{}&#x27;</span>
 </code></pre>
-<p><strong>Response Example</strong>:</p>
+<p><strong>成功响应 (HTTP 201)</strong>:</p>
 <pre><code class="language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;success&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Book created successfully&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;book&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
-    <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;abc123def&quot;</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Book Title&quot;</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">&quot;author&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Author Name&quot;</span><span class="hljs-punctuation">,</span>
-    <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2023-12-01T10:00:00.000Z&quot;</span>
-  <span class="hljs-punctuation">}</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;注册成功&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user-uuid&quot;</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;profileId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">123</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">&quot;inviteCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;optional-code&quot;</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
-<h4>3. Get Book Information</h4>
-<p><strong>curl Request Examples</strong>:</p>
-<pre><code class="language-bash"><span class="hljs-comment"># Get all books list</span>
-curl -X GET https://hono.edgeone.app/book
-
-<span class="hljs-comment"># Get specific book details</span>
-curl -X GET https://hono.edgeone.app/book/1
-
-<span class="hljs-comment"># Get personal page</span>
-curl -X GET https://hono.edgeone.app/john
-</code></pre>
-<h3>Error Code Description</h3>
-<table>
-<thead>
-<tr>
-<th>Error Code</th>
-<th>HTTP Status Code</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>VALIDATION_ERROR</code></td>
-<td>400</td>
-<td>Request parameter validation failed</td>
-</tr>
-<tr>
-<td><code>FILE_UPLOAD_ERROR</code></td>
-<td>400</td>
-<td>File upload failed</td>
-</tr>
-<tr>
-<td><code>NOT_FOUND</code></td>
-<td>404</td>
-<td>Resource not found</td>
-</tr>
-<tr>
-<td><code>INTERNAL_ERROR</code></td>
-<td>500</td>
-<td>Internal server error</td>
-</tr>
-</tbody></table>
-<h3>Rate Limiting</h3>
+<p><strong>错误响应</strong>:</p>
 <ul>
-<li>All API endpoints currently have no rate limiting</li>
-<li>Client-side request frequency control is recommended</li>
-</ul>
-<h3>CORS Support</h3>
-<p>All API endpoints support cross-origin access, response headers include:</p>
-<ul>
-<li><code>Access-Control-Allow-Origin: *</code></li>
-<li><code>Access-Control-Allow-Methods: POST, GET, OPTIONS</code></li>
-<li><code>Access-Control-Allow-Headers: Content-Type, Authorization</code></li>
-</ul>
-<h2>🔧 Development</h2>
-<h3>Local Development</h3>
-<pre><code class="language-bash"><span class="hljs-comment"># Install dependencies</span>
-npm install
-
-<span class="hljs-comment"># Start development server</span>
-npm run dev
-</code></pre>
-<h3>Deployment</h3>
-<pre><code class="language-bash"><span class="hljs-comment"># Deploy to EdgeOne</span>
-npm run deploy
-</code></pre>
-<h2>🌐 Environment Variables</h2>
-<p>The project uses the following environment variables and global objects:</p>
-<ul>
-<li><code>my_kv</code> - KV storage instance for data persistence</li>
-</ul>
-<h2>🛡️ Security Features</h2>
-<h3>IP Restriction (Optional)</h3>
-<p>The project includes IP restriction middleware configuration (commented by default), which can limit access sources:</p>
-<pre><code class="language-typescript">app.<span class="hljs-title function_">use</span>(<span class="hljs-string">&#x27;*&#x27;</span>, <span class="hljs-title function_">ipRestriction</span>(<span class="hljs-comment">/* configuration */</span>));
-</code></pre>
-<h2>📝 API Response Format</h2>
-<h3>Success Response</h3>
-<pre><code class="language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;success&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Operation successful&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span><span class="hljs-punctuation">}</span>
+<li><strong>HTTP 400 - 参数校验失败</strong>:<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;邮箱不能为空&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-comment">// 或其他参数校验错误信息</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
-<h3>Error Response</h3>
 <pre><code class="language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">&quot;error&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ERROR_CODE&quot;</span><span class="hljs-punctuation">,</span>
-  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Error description&quot;</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;手机号注册需要验证码&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
-<h2>🎨 UI Design</h2>
-<p>The project adopts modern UI design:</p>
-<ul>
-<li>Responsive layout</li>
-<li>System font stack</li>
-<li>Card-style design</li>
-<li>Unified color theme</li>
-<li>Elegant error pages</li>
+</li>
+<li><strong>HTTP 400 - 验证码错误</strong>:<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;验证码不正确或已过期&quot;</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
+<li><strong>HTTP 400/500 - 注册失败</strong>:<pre><code class="language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">400</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;message&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;注册失败&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-comment">// 或更具体的数据库错误信息</span>
+  <span class="hljs-attr">&quot;data&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">&quot;timestamp&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1672531200000</span>
+<span class="hljs-punctuation">}</span>
+</code></pre>
+</li>
 </ul>
-<h2>📦 Dependencies</h2>
-<ul>
-<li><strong>hono</strong> - Web framework</li>
-<li><strong>@edgeone/ef-types</strong> - EdgeOne Functions type definitions</li>
-<li><strong>edgeone</strong> - EdgeOne CLI tool</li>
-</ul>
-<h2>🤝 Contributing</h2>
-<p>Welcome to submit Issues and Pull Requests to improve this project.</p>
-<h2>📄 License</h2>
-<p>MIT License</p>
 
       
       <div class="highlight-box">
