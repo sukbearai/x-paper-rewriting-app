@@ -13,6 +13,9 @@ interface SmsEnvBindings extends DataBaseEnvBindings {
   TENCENT_SMS_SDK_APP_ID: string
   TENCENT_SMS_SIGN: string
   TENCENT_SMS_TEMPLATE_ID: string
+  TENCENT_SMS_REGION?: string
+  TENCENT_SMS_TOKEN?: string
+  TENCENT_SMS_LANGUAGE?: string
   // future: RATE_LIMIT_WINDOW?: string; RATE_LIMIT_MAX?: string
 }
 
@@ -30,10 +33,13 @@ interface SupabaseSmsWebhookEvent {
 // Tencent SMS request payload (subset we construct)
 interface TencentSmsPayload {
   SmsSdkAppId: string
-  SignName: string
   TemplateId: string
-  TemplateParamSet: [string]
   PhoneNumberSet: string[]
+  SignName?: string
+  TemplateParamSet?: string[]
+  ExtendCode?: string
+  SessionContext?: string
+  SenderId?: string
 }
 
 // Tencent SMS single send status item
@@ -75,6 +81,11 @@ function getEnvOrThrow(c: SmsContext, key: keyof SmsEnvBindings): string {
   return v as string
 }
 
+function getEnvOptional(c: SmsContext, key: keyof SmsEnvBindings): string | undefined {
+  const v = c.env?.[key]
+  return typeof v === 'string' && v.trim().length > 0 ? v : undefined
+}
+
 function sha256Hex(str: string) {
   const encoder = new TextEncoder()
   return crypto.subtle.digest('SHA-256', encoder.encode(str)).then((buf) => {
@@ -95,14 +106,14 @@ function toHex(u8: Uint8Array) {
 }
 
 // Tencent Cloud TC3-HMAC-SHA256 签名
-async function signTc3(secretId: string, secretKey: string, service: string, host: string, action: string, version: string, region: string, payload: TencentSmsPayload) {
+async function signTc3(secretId: string, secretKey: string, service: string, host: string, action: string, version: string, region: string, payload: TencentSmsPayload, contentType: string) {
   const timestamp = Math.floor(Date.now() / 1000)
   const date = new Date(timestamp * 1000).toISOString().slice(0, 10)
   const httpRequestMethod = 'POST'
   const canonicalUri = '/'
   const canonicalQueryString = ''
-  const canonicalHeaders = `content-type:application/json; charset=utf-8\nhost:${host}\n` // content-type 必须小写
-  const signedHeaders = 'content-type;host'
+  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\nx-tc-action:${action.toLowerCase()}\n`
+  const signedHeaders = 'content-type;host;x-tc-action'
   const body = JSON.stringify(payload)
   const hashedRequestPayload = await sha256Hex(body)
   const canonicalRequest = `${httpRequestMethod}\n${canonicalUri}\n${canonicalQueryString}\n${canonicalHeaders}\n${signedHeaders}\n${hashedRequestPayload}`
@@ -130,7 +141,10 @@ async function sendTencentSms(c: SmsContext, phone: string, code: string): Promi
   const host = 'sms.tencentcloudapi.com'
   const action = 'SendSms'
   const version = '2021-01-11'
-  const region = 'ap-guangzhou'
+  const region = getEnvOptional(c, 'TENCENT_SMS_REGION') ?? 'ap-guangzhou'
+  const sessionToken = getEnvOptional(c, 'TENCENT_SMS_TOKEN')
+  const language = getEnvOptional(c, 'TENCENT_SMS_LANGUAGE')
+  const contentType = 'application/json; charset=utf-8'
 
   // 腾讯要求 E.164 格式，例如 +8613711112222
   const phoneNumberSet = [/^1\d{10}$/.test(phone) ? `+86${phone}` : phone]
@@ -139,22 +153,24 @@ async function sendTencentSms(c: SmsContext, phone: string, code: string): Promi
     SmsSdkAppId: SDK_APP_ID,
     SignName: SIGN_NAME,
     TemplateId: TEMPLATE_ID,
-    TemplateParamSet: [code],
     PhoneNumberSet: phoneNumberSet,
+    TemplateParamSet: [code],
   }
 
-  const { authorization, timestamp } = await signTc3(SECRET_ID, SECRET_KEY, service, host, action, version, region, payload)
+  const { authorization, timestamp } = await signTc3(SECRET_ID, SECRET_KEY, service, host, action, version, region, payload, contentType)
 
   const resp = await fetch(`https://${host}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Type': contentType,
       'Host': host,
       'X-TC-Action': action,
       'X-TC-Version': version,
       'X-TC-Region': region,
       'X-TC-Timestamp': String(timestamp),
       'Authorization': authorization,
+      ...(sessionToken ? { 'X-TC-Token': sessionToken } : {}),
+      ...(language ? { 'X-TC-Language': language } : {}),
     },
     body: JSON.stringify(payload),
   })
@@ -186,15 +202,18 @@ sms.post('/', async (c: SmsContext) => {
       return c.json(createErrorResponse('缺少 phone 或 otp', 400), 400)
     if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone))
       return c.json(createErrorResponse('手机号格式不正确', 400), 400)
+    if (!/^\d{1,6}$/.test(code))
+      return c.json(createErrorResponse('验证码格式不正确，需为 1-6 位数字', 400), 400)
 
     const result = await sendTencentSms(c, phone, code)
 
     const status = result?.Response?.SendStatusSet?.[0]
     if (status?.Code === 'Ok') {
-      return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo }, '短信发送成功'))
+      return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo, requestId: result?.Response?.RequestId }, '短信发送成功'))
     }
 
-    return c.json(createErrorResponse(status?.Message || result?.Response?.Error?.Message || '短信发送失败', 500, { tencentResult: result }), 500)
+    const errorMessage = status?.Message || result?.Response?.Error?.Message || '短信发送失败'
+    return c.json(createErrorResponse(errorMessage, 500, { requestId: result?.Response?.RequestId, tencentResult: result }), 500)
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
