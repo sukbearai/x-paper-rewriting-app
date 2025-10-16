@@ -75,6 +75,7 @@ signup.post('/', async (c) => {
     const { email, password, username, phone, inviteCode, otp } = parsed.data
 
     const supabase = createSupabaseClient(c.env)
+    let verifiedUserId: string | null = null
 
     const { data: existingProfileByEmail, error: emailCheckError } = await supabase
       .from('profiles')
@@ -101,7 +102,7 @@ signup.post('/', async (c) => {
       return c.json(createErrorResponse('该用户名已被使用', 409), 409)
 
     if (phone) {
-      const { error: otpError } = await supabase.auth.verifyOtp({
+      const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
         phone,
         token: otp!,
         type: 'sms',
@@ -109,15 +110,47 @@ signup.post('/', async (c) => {
 
       if (otpError)
         return c.json(createErrorResponse('验证码不正确或已过期', 400), 400)
+
+      const session = otpData?.session
+      const user = otpData?.user
+
+      if (!session || !session.access_token || !user)
+        return c.json(createErrorResponse('验证码不正确或已过期', 400), 400)
+
+      const supabaseWithSession = createSupabaseClient(c.env, session.access_token)
+      const { error: updateError } = await supabaseWithSession.auth.updateUser({
+        email,
+        password,
+        data: {
+          username,
+        },
+      })
+
+      if (updateError)
+        return c.json(createErrorResponse(updateError.message || '注册失败', 400), 400)
+
+      verifiedUserId = user.id
     }
 
-    const { data, error } = await supabase.rpc('register_user_with_invite', {
+    const rpcPayload: {
+      p_email: string
+      p_password: string
+      p_username: string
+      p_phone: string | null
+      p_invite_code: string | null
+      p_user_id?: string
+    } = {
       p_email: email,
       p_password: password,
       p_username: username,
       p_phone: phone || null,
       p_invite_code: inviteCode || null,
-    })
+    }
+
+    if (verifiedUserId)
+      rpcPayload.p_user_id = verifiedUserId
+
+    const { data, error } = await supabase.rpc('register_user_with_invite', rpcPayload)
 
     if (error)
       return c.json(createErrorResponse(error.message || '注册失败', 500), 500)

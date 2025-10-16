@@ -28,24 +28,27 @@
 
 **端点**: `POST /otp`
 
-**描述**: 向用户手机发送一次性短信验证码，用于后续操作（如注册）的验证。
+**描述**: 向用户手机发送一次性短信验证码，可用于注册或登录等后续操作。
 
 **请求体**:
 ```json
 {
-  "phone": "+8613800138000"
+  "phone": "+8613800138000",
+  "purpose": "signup"
 }
 ```
 
 **参数**:
 - `phone` (必需): 用户的手机号码，需符合国际格式（如 `+` 开头）。
+- `purpose` (可选): 验证码用途，`signup` 表示注册（默认），`login` 表示登录。
 
 **cURL 示例**:
 ```bash
 curl -X POST https://rewriting.congrongtech.cn/otp \
   -H "Content-Type: application/json" \
   -d '{
-    "phone": "+8613800138000"
+    "phone": "+8613800138000",
+    "purpose": "login"
   }'
 ```
 
@@ -82,6 +85,15 @@ curl -X POST https://rewriting.congrongtech.cn/otp \
   {
     "code": 409,
     "message": "该手机号已注册，请直接登录",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 手机号未注册（登录场景）**:
+  ```json
+  {
+    "code": 404,
+    "message": "该手机号尚未注册",
     "data": null,
     "timestamp": 1672531200000
   }
