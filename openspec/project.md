@@ -1,81 +1,86 @@
 # Project Context
 
 ## Purpose
-这是一个名为"星辰写作"的AI写作助手全栈Web应用。该应用提供论文重写、内容生成等功能，用户可以通过前端界面使用AI写作工具，系统还包含用户认证、短信验证、余额充值等完整的用户管理功能。
+星辰写作 - 一个基于 AI 的论文重写应用，提供智能文本重写、用户管理和积分系统。该应用包括前端界面和后端 API 服务，通过 Hono 框架提供高性能的云端函数服务。
 
 ## Tech Stack
-### 前端 (Client)
-- **框架**: Vue 3 + TypeScript
-- **构建工具**: Vite
-- **UI组件库**: Element Plus
-- **样式**: Tailwind CSS
-- **状态管理**: Pinia + pinia-plugin-persistedstate
-- **路由**: Vue Router
-- **HTTP客户端**: Axios
-- **开发工具**: unplugin-auto-import, unplugin-vue-components
+### 核心技术栈
+- **TypeScript** - 主要开发语言，类型安全
+- **Vue 3** - 前端框架，支持 Composition API
+- **Hono** - 后端 Web 框架，专为 Edge Runtime 优化
+- **Element Plus** - Vue 3 UI 组件库
+- **Tailwind CSS** - 原子化 CSS 框架
+- **Vite** - 前端构建工具
+- **pnpm** - 包管理器，支持 monorepo
 
-### 后端 (Server)
-- **运行时**: Cloudflare Functions (Edge One Pages)
-- **框架**: Hono
-- **数据库**: Supabase
-- **短信服务**: 腾讯云SMS
-- **类型验证**: Zod
-- **Webhook验证**: standardwebhooks
-- **文档**: Marked + highlight.js
+### 后端服务
+- **Supabase** - 数据库和认证服务
+- **Zod** - 数据验证和类型安全
+- **marked** - Markdown 解析
+- **highlight.js** - 代码高亮
+- **standardwebhooks** - Webhook 验证
 
-### 开发工具
-- **包管理**: pnpm (Monorepo)
-- **代码规范**: ESLint (@antfu/eslint-config)
-- **测试**: Vitest
-- **构建**: unbuild
-- **类型检查**: TypeScript
+### 部署和运维
+- **EdgeOne** - 腾讯云边缘计算平台
+- **Cloudflare Workers** - 边缘计算运行时
+- **KV 存储** - 键值存储服务
 
 ## Project Conventions
 
 ### Code Style
-- 使用 @antfu/eslint-config 作为代码规范基础
-- TypeScript 严格模式
-- Vue 3 Composition API + `<script setup>` 语法
-- 函数式组件优先，使用 Pinia 进行状态管理
-- 中文注释和变量命名混合使用
-- 文件命名使用 kebab-case，组件使用 PascalCase
+- 使用 **@antfu/eslint-config** 作为 ESLint 配置基础
+- 支持中英文混合注释，优先使用中文注释
+- 采用 Vue 3 Composition API 和 `<script setup>` 语法
+- 组件命名采用 PascalCase，文件名使用 kebab-case
+- 使用 TypeScript 严格模式，确保类型安全
 
 ### Architecture Patterns
-- **Monorepo架构**: 使用 pnpm workspace 管理多个包和应用
-- **全栈分离**: 前后端独立部署，通过API通信
-- **Edge Computing**: 后端部署在Cloudflare Edge One Pages
-- **微服务路由**: 使用Hono路由器模块化API端点
-- **类型安全**: 前后端全TypeScript覆盖，Zod验证API数据
+- **Monorepo 结构** - 使用 pnpm workspace 管理多包项目
+- **模块化路由** - 后端采用模块化路由设计（/book, /upload, /user, /sms 等）
+- **组合式 API** - 前端使用 Vue 3 Composition API
+- **响应式设计** - 支持移动端和桌面端自适应
+- **Edge-First** - 优先考虑边缘计算优化
 
 ### Testing Strategy
-- 使用 Vitest 进行单元测试
-- 测试覆盖率报告：`pnpm test:coverage`
-- 测试文件位于各包的 `__tests__` 或 `test` 目录
+- 使用 **Vitest** 作为单元测试框架
+- 测试环境配置为 Node.js
+- 测试覆盖率报告集成到 CI/CD 流程
+- API 测试覆盖用户认证、数据验证等核心功能
 
 ### Git Workflow
-- **主分支**: main (生产环境)
-- **开发分支**: develop/server (当前工作分支)
-- **提交规范**: 使用 conventional commits 格式
-- **代码审查**: 所有PR必须通过代码审查
-- **自动化**: 使用 bumpp 进行版本管理
+- 主分支：`main`
+- 开发分支：`develop/server`
+- 提交信息遵循约定式提交规范（feat:, fix:, chore: 等）
+- 自动化版本管理使用 **bumpp**
+- 代码提交前自动运行 ESLint 检查
 
 ## Domain Context
-这是一个AI写作助手平台，主要服务于学术论文写作和内容重写需求：
-- **核心功能**: AI论文重写、内容生成
-- **用户系统**: 手机号注册、短信验证、余额管理
-- **商业模式**: 按使用量计费，用户充值消费
-- **技术特点**: 边缘计算部署，低延迟响应
+### 应用领域
+- **学术论文重写** - 提供智能文本重写服务
+- **用户管理** - 注册、登录、权限控制
+- **积分系统** - 消费记录、余额管理、充值功能
+- **内容管理** - 文档上传、处理、展示
+
+### 业务逻辑
+- 用户通过手机号注册，支持短信验证
+- 积分消费系统，每次重写操作扣除相应积分
+- 支持多种文档格式处理
+- 实时用户状态和余额显示
 
 ## Important Constraints
-- **部署平台**: 前端可部署到任意静态托管，后端必须部署到Edge One Pages
-- **数据库**: 必须使用Supabase作为用户数据存储
-- **短信服务**: 短信验证功能依赖腾讯云SMS服务
-- **环境变量**: 生产环境需要配置完整的环境变量（数据库连接、短信服务等）
-- **浏览器兼容性**: 需要支持现代浏览器（ES2020+）
+- **边缘计算限制** - 代码需要兼容 Cloudflare Workers 和 EdgeOne 运行时
+- **无服务器架构** - 不能依赖传统的文件系统操作
+- **类型安全** - 所有 API 必须使用 TypeScript 和 Zod 进行类型验证
+- **性能要求** - 响应时间必须在边缘计算限制内
+- **数据安全** - 用户数据和交易记录需要加密保护
 
 ## External Dependencies
-- **Supabase**: 用户数据库、认证服务、Webhook
-- **腾讯云SMS**: 短信验证码发送服务
-- **Edge One Pages**: Cloudflare边缘计算平台
-- **Element Plus**: UI组件库
-- **Tailwind CSS**: 样式框架
+### 核心服务
+- **Supabase** - 用户数据存储和认证
+- **腾讯云 SMS** - 短信验证服务
+- **EdgeOne** - 云端函数部署平台
+
+### 开发工具
+- **unplugin-auto-import** - Vue 组件自动导入
+- **unplugin-vue-components** - 组件按需加载
+- **vite-plugin-svg-icons** - SVG 图标管理
