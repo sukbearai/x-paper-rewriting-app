@@ -8,8 +8,8 @@ import type { DataBaseEnvBindings } from '@/utils/db'
 // Extend existing EnvConfig with required SMS related bindings (not yet in db.ts)
 interface SmsEnvBindings extends DataBaseEnvBindings {
   SUPABASE_HOOK_SECRET: string
-  TENCENT_SECRET_ID: string
-  TENCENT_SECRET_KEY: string
+  SECRET_ID: string
+  SECRET_KEY: string
   TENCENT_SMS_SDK_APP_ID: string
   TENCENT_SMS_SIGN: string
   TENCENT_SMS_TEMPLATE_ID: string
@@ -65,8 +65,8 @@ interface TencentSmsResponse {
 // Supabase Auth send-sms Hook -> 短信桥接（腾讯云短信）
 // 环境变量：
 //  - HOOK_SECRET (Supabase 提供，可能形如 v1,whsec_xxx)
-//  - TENCENT_SECRET_ID
-//  - TENCENT_SECRET_KEY
+//  - SECRET_ID
+//  - SECRET_KEY
 //  - TENCENT_SMS_SDK_APP_ID (SmsSdkAppId)
 //  - TENCENT_SMS_SIGN (SignName)
 //  - TENCENT_SMS_TEMPLATE_ID (TemplateId)
@@ -131,8 +131,8 @@ async function signTc3(secretId: string, secretKey: string, service: string, hos
 }
 
 async function sendTencentSms(c: SmsContext, phone: string, code: string): Promise<TencentSmsResponse> {
-  const SECRET_ID = getEnvOrThrow(c, 'TENCENT_SECRET_ID')
-  const SECRET_KEY = getEnvOrThrow(c, 'TENCENT_SECRET_KEY')
+  const SECRET_ID = getEnvOrThrow(c, 'SECRET_ID')
+  const SECRET_KEY = getEnvOrThrow(c, 'SECRET_KEY')
   const SDK_APP_ID = getEnvOrThrow(c, 'TENCENT_SMS_SDK_APP_ID')
   const SIGN_NAME = getEnvOrThrow(c, 'TENCENT_SMS_SIGN')
   const TEMPLATE_ID = getEnvOrThrow(c, 'TENCENT_SMS_TEMPLATE_ID')
@@ -202,6 +202,50 @@ sms.post('/', async (c: SmsContext) => {
       return c.json(createErrorResponse('缺少 phone 或 otp', 400), 400)
     if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone))
       return c.json(createErrorResponse('手机号格式不正确', 400), 400)
+    if (!/^\d{1,6}$/.test(code))
+      return c.json(createErrorResponse('验证码格式不正确，需为 1-6 位数字', 400), 400)
+
+    const result = await sendTencentSms(c, phone, code)
+
+    const status = result?.Response?.SendStatusSet?.[0]
+    if (status?.Code === 'Ok') {
+      return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo, requestId: result?.Response?.RequestId }, '短信发送成功'))
+    }
+
+    const errorMessage = status?.Message || result?.Response?.Error?.Message || '短信发送失败'
+    return c.json(createErrorResponse(errorMessage, 500, { requestId: result?.Response?.RequestId, tencentResult: result }), 500)
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+// 开发调试接口 - 直接发送短信测试
+interface DevSendSmsRequest {
+  phone?: string
+  code?: string
+}
+
+sms.post('/dev', async (c: SmsContext) => {
+  try {
+    let payload: DevSendSmsRequest
+    try {
+      payload = await c.req.json<DevSendSmsRequest>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const phone = payload?.phone?.trim()
+    const code = payload?.code?.trim()
+
+    if (!phone || !code)
+      return c.json(createErrorResponse('缺少 phone 或 code 参数', 400), 400)
+
+    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone))
+      return c.json(createErrorResponse('手机号格式不正确', 400), 400)
+
     if (!/^\d{1,6}$/.test(code))
       return c.json(createErrorResponse('验证码格式不正确，需为 1-6 位数字', 400), 400)
 
