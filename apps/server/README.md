@@ -24,7 +24,136 @@
 
 ### API 详情
 
-### 1. 发送短信验证码
+### 1. 用户登录
+
+**端点**: `POST /login`
+
+**描述**: 支持两种登录方式：用户名+密码 或 手机号+验证码。
+
+**请求体 - 用户名密码登录**:
+```json
+{
+  "username": "yourusername",
+  "password": "yourpassword"
+}
+```
+
+**请求体 - 手机号验证码登录**:
+```json
+{
+  "phone": "+8613800138000",
+  "otp": "123456"
+}
+```
+
+**参数**:
+- `username` (用户名密码登录必需): 用户名，长度至少 1 位。
+- `password` (用户名密码登录必需): 密码，长度至少 1 位。
+- `phone` (手机号验证码登录必需): 用户的手机号码，需符合国际格式。
+- `otp` (手机号验证码登录必需): 通过短信收到的 4-8 位验证码。
+
+**cURL 示例 - 用户名密码登录**:
+```bash
+curl -X POST https://rewriting.congrongtech.cn/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "yourusername",
+    "password": "yourpassword"
+  }'
+```
+
+**cURL 示例 - 手机号验证码登录**:
+```bash
+curl -X POST https://rewriting.congrongtech.cn/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "+8613800138000",
+    "otp": "123456"
+  }'
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "登录成功",
+  "data": {
+    "user": {
+      "id": 123,
+      "username": "yourusername",
+      "email": "user@example.com",
+      "phone": "+8613800138000",
+      "role": "user",
+      "pointsBalance": 1000.00,
+      "inviteCode": "ABC123",
+      "createdAt": "2024-01-01T00:00:00Z"
+    },
+    "session": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "refreshToken": "def50200...",
+      "expiresIn": 3600
+    }
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 400 - 请求体或参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "请求体格式错误，应为 JSON",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "请提供用户名密码或手机号验证码进行登录",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "手机号格式不正确",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 认证失败**:
+  ```json
+  {
+    "code": 401,
+    "message": "用户名或密码错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "验证码不正确或已过期",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "获取用户信息失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+---
+
+### 2. 发送短信验证码
 
 **端点**: `POST /otp`
 
@@ -110,7 +239,7 @@ curl -X POST https://rewriting.congrongtech.cn/otp \
 
 ---
 
-### 2. 用户注册
+### 3. 用户注册
 
 **端点**: `POST /signup`
 
