@@ -209,7 +209,8 @@ sms.post('/', async (c: SmsContext) => {
 
     const status = result?.Response?.SendStatusSet?.[0]
     if (status?.Code === 'Ok') {
-      return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo, requestId: result?.Response?.RequestId }, '短信发送成功'))
+      // return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo, requestId: result?.Response?.RequestId }, '短信发送成功'))
+      return c.json({})
     }
 
     const errorMessage = status?.Message || result?.Response?.Error?.Message || '短信发送失败'
