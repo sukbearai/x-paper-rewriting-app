@@ -25,6 +25,7 @@ Hono API 编写助手用于基于需求规划、实现并维护新的或现有�
 
 ## 参考资料
 
+- 需求文档: [prd.md](prd.md)
 - 项目数据库结构：[db_schema.md](db_schema.md)
 - API 接口开发 SOP：[sop.md](sop.md)
-- 服务器应用说明：[../../../apps/server/README.md](../../../apps/server/README.md)
+- 接口文档：[../../../apps/server/README.md](../../../apps/server/README.md)
