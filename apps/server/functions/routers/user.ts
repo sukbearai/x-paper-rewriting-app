@@ -1,18 +1,301 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseClient } from '@/utils/db'
 
+interface RegisterRequestBody {
+  username?: string
+  email?: string
+  phone?: string
+  verification_code?: string
+  password?: string
+  invite_code?: string
+}
+
 const user = new Hono<{ Bindings: DataBaseEnvBindings }>()
+
+const registerSchema = z.object({
+  username: z.string()
+    .trim()
+    .min(3, '用户名至少3个字符')
+    .max(20, '用户名最多20个字符')
+    .regex(/^[\w\u4E00-\u9FA5]+$/, '用户名只能包含字母、数字、下划线和中文字符'),
+  email: z.string()
+    .trim()
+    .email('邮箱格式不正确'),
+  phone: z.string()
+    .trim()
+    .regex(/^\+?\d{6,15}$/, '手机号格式不正确')
+    .optional(),
+  verification_code: z.string()
+    .trim()
+    .min(4, '验证码格式不正确')
+    .max(6, '验证码格式不正确')
+    .optional(),
+  password: z.string()
+    .min(6, '密码至少6个字符')
+    .max(100, '密码最多100个字符'),
+  invite_code: z.string()
+    .trim()
+    .optional(),
+}).refine((data) => {
+  // 如果提供了手机号，则验证码是必需的
+  return !(data.phone && !data.verification_code)
+}, {
+  message: '提供手机号时必须提供验证码',
+  path: ['verification_code'],
+})
+
+// 生成6位随机邀请码
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
+user.post('/register', async (c) => {
+  try {
+    let payload: RegisterRequestBody
+    try {
+      payload = await c.req.json<RegisterRequestBody>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = registerSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { username, email, phone, verification_code, password, invite_code } = parsed.data
+    const supabase = createSupabaseClient(c.env)
+    let authUserId: string | null = null
+
+    // 检查用户名是否已存在
+    const { data: existingUsername, error: usernameError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle()
+
+    if (usernameError) {
+      return c.json(createErrorResponse(usernameError.message || '服务器内部错误', 500), 500)
+    }
+
+    if (existingUsername) {
+      return c.json(createErrorResponse('用户名已存在', 409), 409)
+    }
+
+    // 检查邮箱是否已存在
+    const { data: existingEmail, error: emailError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+
+    if (emailError) {
+      return c.json(createErrorResponse(emailError.message || '服务器内部错误', 500), 500)
+    }
+
+    if (existingEmail) {
+      return c.json(createErrorResponse('邮箱已被注册', 409), 409)
+    }
+
+    // 如果提供了手机号，检查是否已存在
+    let existingPhone = null
+    if (phone) {
+      const { data: existingPhoneData, error: phoneError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', phone)
+        .maybeSingle()
+
+      if (phoneError) {
+        return c.json(createErrorResponse(phoneError.message || '服务器内部错误', 500), 500)
+      }
+
+      existingPhone = existingPhoneData
+      if (existingPhone) {
+        return c.json(createErrorResponse('手机号已被注册', 409), 409)
+      }
+    }
+
+    // 如果提供了邀请码，验证其有效性
+    let invitedByProfile = null
+    if (invite_code) {
+      const { data: inviterData, error: inviterError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('invite_code', invite_code.toUpperCase())
+        .maybeSingle()
+
+      if (inviterError) {
+        return c.json(createErrorResponse(inviterError.message || '服务器内部错误', 500), 500)
+      }
+
+      if (!inviterData) {
+        return c.json(createErrorResponse('邀请码无效', 404), 404)
+      }
+
+      invitedByProfile = inviterData
+    }
+
+    if (phone) {
+      if (!verification_code) {
+        return c.json(createErrorResponse('提供手机号时必须提供验证码', 400), 400)
+      }
+
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        phone,
+        token: verification_code,
+        type: 'sms',
+      })
+
+      if (verifyError || !verifyData.session || !verifyData.user) {
+        return c.json(createErrorResponse('验证码错误或已过期', 400), 400)
+      }
+
+      if (verifyData.user.phone !== phone) {
+        return c.json(createErrorResponse('手机号与验证码不匹配', 400), 400)
+      }
+
+      const session = verifyData.session
+      if (!session.access_token || !session.refresh_token) {
+        return c.json(createErrorResponse('验证码会话无效，请重新获取验证码', 400), 400)
+      }
+
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      })
+
+      if (setSessionError) {
+        return c.json(createErrorResponse(setSessionError.message || '设置账号信息失败', 400), 400)
+      }
+
+      try {
+        const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
+          email,
+          password,
+          phone,
+          data: {
+            username,
+          },
+        })
+
+        if (updateError || !updatedUser.user) {
+          return c.json(createErrorResponse(updateError?.message || '设置账号信息失败', 400), 400)
+        }
+
+        authUserId = updatedUser.user.id
+      }
+      finally {
+        try {
+          await supabase.auth.signOut()
+        }
+        catch (signOutError) {
+          console.warn('[register] Failed to sign out temporary session', signOutError)
+        }
+      }
+    }
+    else {
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+          },
+        },
+      })
+
+      if (signUpError || !authData.user) {
+        return c.json(createErrorResponse(signUpError?.message || '注册失败', 400), 400)
+      }
+
+      authUserId = authData.user.id
+    }
+
+    if (!authUserId) {
+      console.error('[register] Missing auth user id after auth flow')
+      return c.json(createErrorResponse('注册失败，请稍后重试', 500), 500)
+    }
+
+    // 生成唯一邀请码
+    let userInviteCode = generateInviteCode()
+    let { data: existingInviteCode } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('invite_code', userInviteCode)
+      .maybeSingle()
+
+    // 确保邀请码唯一
+    while (existingInviteCode) {
+      userInviteCode = generateInviteCode()
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('invite_code', userInviteCode)
+        .maybeSingle()
+      existingInviteCode = data
+    }
+
+    // 创建用户档案
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        user_id: authUserId,
+        username,
+        email,
+        phone: phone || null,
+        invite_code: userInviteCode,
+        invited_by: invitedByProfile?.id || null,
+        role: 'user',
+        points_balance: 0,
+      })
+      .select('id, username, email, phone, invite_code, role, points_balance, created_at')
+      .single()
+
+    if (profileError) {
+      console.error('[register] Failed to create profile', {
+        authUserId,
+        error: profileError.message,
+      })
+      return c.json(createErrorResponse(profileError.message || '创建用户档案失败', 500), 500)
+    }
+
+    return c.json(createSuccessResponse({
+      id: profileData.id,
+      username: profileData.username,
+      email: profileData.email,
+      phone: profileData.phone,
+      invite_code: profileData.invite_code,
+      role: profileData.role,
+      points_balance: profileData.points_balance,
+      created_at: profileData.created_at,
+      invited_by: invitedByProfile?.username || null,
+    }, '注册成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
 
 user.post('/', async (c) => {
   try {
-    const supabase = createSupabaseClient(c.env)
-    const { data, error } = await supabase.from('profiles').select('*')
-    if (error) {
-      return c.json(createErrorResponse(error.message, 400), 400)
-    }
-    return c.json(createSuccessResponse(data, '获取成功'))
+    // const supabase = createSupabaseClient(c.env)
+    // const { data, error } = await supabase.from('profiles').select('*')
+    // if (error) {
+    //   return c.json(createErrorResponse(error.message, 400), 400)
+    // }
+    return c.json(createSuccessResponse('*', '获取成功'))
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
