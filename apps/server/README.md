@@ -408,3 +408,79 @@ curl -X POST https://rewriting.congrongtech.cn/user/login \
   ```
 
 ---
+
+### 4. 用户退出登录
+
+**端点**: `POST /user/logout`
+
+**描述**: 用户退出登录接口，使当前访问令牌和刷新令牌失效。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+refresh_token: <refresh_token>
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`
+- `refresh_token` (可选): 刷新令牌，用于撤销令牌以防止后续使用
+
+**cURL 示例**:
+```bash
+# 基础退出（仅使用access_token）
+curl -X POST https://rewriting.congrongtech.cn/user/logout \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 完整退出（同时撤销refresh_token）
+curl -X POST https://rewriting.congrongtech.cn/user/logout \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "退出登录成功",
+  "data": null,
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 400 - 缺少访问令牌**:
+  ```json
+  {
+    "code": 400,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 访问令牌无效**:
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "服务器内部错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- 即使access_token已过期或无效，接口仍会返回成功响应
+- refresh_token的撤销是可选的，如果撤销失败不会影响退出流程
+- 建议客户端在退出后清除本地存储的所有令牌信息
+
+---

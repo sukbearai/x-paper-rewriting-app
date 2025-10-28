@@ -361,7 +361,7 @@ user.post('/register', async (c) => {
       }
       finally {
         try {
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'global' })
         }
         catch (signOutError) {
           console.warn('[register] Failed to sign out temporary session', signOutError)
@@ -445,6 +445,56 @@ user.post('/register', async (c) => {
       created_at: profileData.created_at,
       invited_by: invitedByProfile?.username || null,
     }, '注册成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+// 用户退出登录
+user.post('/logout', async (c) => {
+  try {
+    // 从请求头获取token
+    const accessToken = c.req.header('Authorization')?.replace('Bearer ', '')
+    const refreshToken = c.req.header('refresh_token')
+
+    // 至少需要提供access_token
+    if (!accessToken) {
+      return c.json(createErrorResponse('缺少访问令牌', 400), 400)
+    }
+
+    const supabase = createSupabaseClient(c.env, accessToken)
+
+    // 验证token有效性并获取用户信息
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return c.json(createErrorResponse('访问令牌无效', 401), 401)
+    }
+
+    // 执行退出登录
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
+
+    if (signOutError) {
+      console.error('[logout] Supabase signOut error:', signOutError)
+      // 即使signOut失败，也继续处理，因为token可能已经过期
+    }
+
+    // 如果提供了refresh_token，尝试撤销它
+    if (refreshToken) {
+      try {
+        // 创建新的客户端实例用于撤销refresh token
+        const adminSupabase = createSupabaseClient(c.env)
+        await adminSupabase.auth.admin.signOut(refreshToken)
+      }
+      catch (revokeError) {
+        console.warn('[logout] Failed to revoke refresh token:', revokeError)
+        // 不阻止退出流程
+      }
+    }
+
+    return c.json(createSuccessResponse(null, '退出登录成功'))
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
