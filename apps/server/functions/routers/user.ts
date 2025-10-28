@@ -4,6 +4,13 @@ import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseClient } from '@/utils/db'
 
+interface LoginRequestBody {
+  username?: string
+  password?: string
+  phone?: string
+  verification_code?: string
+}
+
 interface RegisterRequestBody {
   username?: string
   email?: string
@@ -14,6 +21,43 @@ interface RegisterRequestBody {
 }
 
 const user = new Hono<{ Bindings: DataBaseEnvBindings }>()
+
+const loginSchema = z.object({
+  username: z.string()
+    .trim()
+    .min(1, '用户名不能为空')
+    .optional(),
+  password: z.string()
+    .min(1, '密码不能为空')
+    .optional(),
+  phone: z.string()
+    .trim()
+    .regex(/^\+?\d{6,15}$/, '手机号格式不正确')
+    .optional(),
+  verification_code: z.string()
+    .trim()
+    .min(4, '验证码格式不正确')
+    .max(6, '验证码格式不正确')
+    .optional(),
+}).refine((data) => {
+  // 用户名密码登录：两者都必须提供
+  const isUsernameLogin = data.username && data.password
+  // 手机号OTP登录：两者都必须提供
+  const isPhoneLogin = data.phone && data.verification_code
+  // 必须是其中一种登录方式
+  return isUsernameLogin || isPhoneLogin
+}, {
+  message: '请提供用户名密码或手机号验证码进行登录',
+  path: [],
+}).refine((data) => {
+  // 不能同时提供两种登录方式
+  const isUsernameLogin = data.username && data.password
+  const isPhoneLogin = data.phone && data.verification_code
+  return !(isUsernameLogin && isPhoneLogin)
+}, {
+  message: '只能选择一种登录方式',
+  path: [],
+})
 
 const registerSchema = z.object({
   username: z.string()
@@ -56,6 +100,126 @@ function generateInviteCode(): string {
   }
   return code
 }
+
+user.post('/login', async (c) => {
+  try {
+    let payload: LoginRequestBody
+    try {
+      payload = await c.req.json<LoginRequestBody>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = loginSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { username, password, phone, verification_code } = parsed.data
+    const supabase = createSupabaseClient(c.env)
+
+    // 用户名密码登录
+    if (username && password) {
+      // 查询用户档案
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
+        .eq('username', username)
+        .single()
+
+      if (profileError || !profile) {
+        return c.json(createErrorResponse('用户名或密码错误', 401), 401)
+      }
+
+      // 使用Supabase Auth进行密码验证
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password,
+      })
+
+      if (signInError || !authData.session) {
+        return c.json(createErrorResponse('用户名或密码错误', 401), 401)
+      }
+
+      // 返回用户信息和token
+      return c.json(createSuccessResponse({
+        user: {
+          id: profile.user_id,
+          username: profile.username,
+          email: profile.email,
+          phone: profile.phone,
+          role: profile.role,
+          points_balance: profile.points_balance,
+          invite_code: profile.invite_code,
+          created_at: profile.created_at,
+        },
+        session: {
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token,
+          expires_at: authData.session.expires_at,
+        },
+      }, '登录成功'))
+    }
+
+    // 手机号OTP登录
+    if (phone && verification_code) {
+      // 查询用户档案
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
+        .eq('phone', phone)
+        .single()
+
+      if (profileError || !profile) {
+        return c.json(createErrorResponse('手机号未注册', 404), 404)
+      }
+
+      // 验证OTP
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        phone,
+        token: verification_code,
+        type: 'sms',
+      })
+
+      if (verifyError || !verifyData.session || !verifyData.user) {
+        return c.json(createErrorResponse('验证码错误或已过期', 401), 401)
+      }
+
+      // 确保验证的手机号与用户档案中的手机号一致
+      if (verifyData.user.phone !== phone) {
+        return c.json(createErrorResponse('手机号与验证码不匹配', 401), 401)
+      }
+
+      // 返回用户信息和token
+      return c.json(createSuccessResponse({
+        user: {
+          id: profile.user_id,
+          username: profile.username,
+          email: profile.email,
+          phone: profile.phone,
+          role: profile.role,
+          points_balance: profile.points_balance,
+          invite_code: profile.invite_code,
+          created_at: profile.created_at,
+        },
+        session: {
+          access_token: verifyData.session.access_token,
+          refresh_token: verifyData.session.refresh_token,
+          expires_at: verifyData.session.expires_at,
+        },
+      }, '登录成功'))
+    }
+
+    // 理论上不会执行到这里，因为有schema验证
+    return c.json(createErrorResponse('登录参数错误', 400), 400)
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
 
 user.post('/register', async (c) => {
   try {
@@ -281,21 +445,6 @@ user.post('/register', async (c) => {
       created_at: profileData.created_at,
       invited_by: invitedByProfile?.username || null,
     }, '注册成功'))
-  }
-  catch (err) {
-    const message = err instanceof Error ? err.message : '服务器内部错误'
-    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
-  }
-})
-
-user.post('/', async (c) => {
-  try {
-    // const supabase = createSupabaseClient(c.env)
-    // const { data, error } = await supabase.from('profiles').select('*')
-    // if (error) {
-    //   return c.json(createErrorResponse(error.message, 400), 400)
-    // }
-    return c.json(createSuccessResponse('*', '获取成功'))
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'

@@ -261,36 +261,150 @@ curl -X POST https://rewriting.congrongtech.cn/user/register \
 
 ---
 
-### 3. 获取用户列表
+### 3. 用户登录
 
-**端点**: `POST /user`
+**端点**: `POST /user/login`
 
-**描述**: 获取所有用户档案信息（仅用于调试和管理）。
+**描述**: 用户登录接口，支持用户名密码登录和手机号OTP验证码登录两种方式。
 
-**请求体**: 无需参数
+**请求体**:
+```json
+{
+  "username": "testuser",
+  "password": "password123"
+}
+```
+或
+```json
+{
+  "phone": "+8613800138000",
+  "verification_code": "123456"
+}
+```
+
+**参数**:
+- **用户名密码登录方式**:
+  - `username` (必需): 用户名
+  - `password` (必需): 密码
+- **手机号OTP登录方式**:
+  - `phone` (必需): 手机号码，需符合国际格式
+  - `verification_code` (必需): 短信验证码，4-6位数字
+
+**注意**: 两种登录方式只能选择一种，不能同时提供。
+
+**cURL 示例**:
+```bash
+# 用户名密码登录
+curl -X POST https://rewriting.congrongtech.cn/user/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "password123"
+  }'
+
+# 手机号OTP登录
+curl -X POST https://rewriting.congrongtech.cn/user/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "+8613800138000",
+    "verification_code": "123456"
+  }'
+```
 
 **成功响应 (HTTP 200)**:
 ```json
 {
   "code": 0,
-  "message": "获取成功",
-  "data": [
-    {
-      "id": 1,
-      "user_id": "uuid-string",
+  "message": "登录成功",
+  "data": {
+    "user": {
+      "id": "uuid-string",
       "username": "testuser",
       "email": "test@example.com",
       "phone": "+8613800138000",
       "role": "user",
       "points_balance": 100,
-      "invited_by": null,
       "invite_code": "XYZ789",
-      "created_at": "2023-12-01T10:00:00.000Z",
-      "updated_at": "2023-12-01T10:00:00.000Z"
+      "created_at": "2023-12-01T10:00:00.000Z"
+    },
+    "session": {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "expires_at": 1701470400
     }
-  ],
+  },
   "timestamp": 1672531200000
 }
 ```
+
+**错误响应**:
+- **HTTP 400 - 请求参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "请提供用户名密码或手机号验证码进行登录",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "只能选择一种登录方式",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "手机号格式不正确",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 认证失败**:
+  ```json
+  {
+    "code": 401,
+    "message": "用户名或密码错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "验证码错误或已过期",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "手机号与验证码不匹配",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "手机号未注册",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "服务器内部错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
 
 ---
