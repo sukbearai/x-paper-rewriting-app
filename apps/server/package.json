@@ -16,7 +16,7 @@
     "zod": "^4.1.9"
   },
   "devDependencies": {
-    "@edgeone/ef-types": "latest",
-    "edgeone": "latest"
+    "@edgeone/ef-types": "^1.0.5",
+    "edgeone": "^1.1.19"
   }
 }
