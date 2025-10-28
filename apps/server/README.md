@@ -484,3 +484,128 @@ curl -X POST https://rewriting.congrongtech.cn/user/logout \
 - 建议客户端在退出后清除本地存储的所有令牌信息
 
 ---
+
+### 5. 用户修改密码
+
+**端点**: `POST /user/change-password`
+
+**描述**: 用户修改密码接口，需要验证当前密码并设置新密码，修改成功后会退出所有会话。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**请求体**:
+```json
+{
+  "current_password": "oldpassword123",
+  "new_password": "newpassword456"
+}
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`
+- `current_password` (必需): 当前密码，用于验证身份
+- `new_password` (必需): 新密码，6-100个字符
+
+**cURL 示例**:
+```bash
+curl -X POST https://rewriting.congrongtech.cn/user/change-password \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "current_password": "oldpassword123",
+    "new_password": "newpassword456"
+  }'
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "密码修改成功，请重新登录",
+  "data": null,
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 400 - 缺少访问令牌**:
+  ```json
+  {
+    "code": 400,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 400 - 请求参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "请求体格式错误，应为 JSON",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "新密码至少6个字符",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "新密码不能与当前密码相同",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 访问令牌无效**:
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 当前密码错误**:
+  ```json
+  {
+    "code": 401,
+    "message": "当前密码错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "用户档案不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "密码更新失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- 修改密码成功后会自动退出所有会话，用户需要使用新密码重新登录
+- 新密码不能与当前密码相同，必须符合密码格式要求
+- 需要提供有效的访问令牌才能调用此接口
+- 建议客户端在收到成功响应后清除本地存储的登录状态
+
+---

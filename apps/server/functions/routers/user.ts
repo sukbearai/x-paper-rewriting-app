@@ -20,6 +20,11 @@ interface RegisterRequestBody {
   invite_code?: string
 }
 
+interface ChangePasswordRequestBody {
+  current_password?: string
+  new_password?: string
+}
+
 const user = new Hono<{ Bindings: DataBaseEnvBindings }>()
 
 const loginSchema = z.object({
@@ -89,6 +94,17 @@ const registerSchema = z.object({
 }, {
   message: '提供手机号时必须提供验证码',
   path: ['verification_code'],
+})
+
+const changePasswordSchema = z.object({
+  current_password: z.string()
+    .min(1, '当前密码不能为空'),
+  new_password: z.string()
+    .min(6, '新密码至少6个字符')
+    .max(100, '新密码最多100个字符'),
+}).refine((data) => data.current_password !== data.new_password, {
+  message: '新密码不能与当前密码相同',
+  path: ['new_password'],
 })
 
 // 生成6位随机邀请码
@@ -495,6 +511,87 @@ user.post('/logout', async (c) => {
     }
 
     return c.json(createSuccessResponse(null, '退出登录成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+// 用户修改密码
+user.post('/change-password', async (c) => {
+  try {
+    // 从请求头获取access_token
+    const accessToken = c.req.header('Authorization')?.replace('Bearer ', '')
+
+    if (!accessToken) {
+      return c.json(createErrorResponse('缺少访问令牌', 400), 400)
+    }
+
+    let payload: ChangePasswordRequestBody
+    try {
+      payload = await c.req.json<ChangePasswordRequestBody>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = changePasswordSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { current_password, new_password } = parsed.data
+    const supabase = createSupabaseClient(c.env, accessToken)
+
+    // 验证token有效性并获取用户信息
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return c.json(createErrorResponse('访问令牌无效', 401), 401)
+    }
+
+    // 查询用户邮箱用于密码验证
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      return c.json(createErrorResponse('用户档案不存在', 404), 404)
+    }
+
+    // 验证当前密码
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: profile.email,
+      password: current_password,
+    })
+
+    if (signInError) {
+      return c.json(createErrorResponse('当前密码错误', 401), 401)
+    }
+
+    // 更新密码
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: new_password,
+    })
+
+    if (updateError) {
+      console.error('[change-password] Update password error:', updateError)
+      return c.json(createErrorResponse('密码更新失败', 500), 500)
+    }
+
+    // 退出所有会话（强制用户重新登录）
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
+
+    if (signOutError) {
+      console.warn('[change-password] SignOut error:', signOutError)
+      // 不影响主要功能，密码已更新成功
+    }
+
+    return c.json(createSuccessResponse(null, '密码修改成功，请重新登录'))
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
