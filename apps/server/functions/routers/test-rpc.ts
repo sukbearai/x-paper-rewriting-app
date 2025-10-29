@@ -60,4 +60,48 @@ testRpc.post('/', async (c) => {
   }
 })
 
+/**
+ * POST /test-rpc/kv
+ *
+ * 测试 KV 存储功能
+ *
+ * 成功响应：
+ * {
+ *   "code": 0,
+ *   "message": "KV 测试成功",
+ *   "data": {
+ *     "key": "test-rpc:test_key",
+ *     "value": "test_value",
+ *     "timestamp": "2024-01-01T00:00:00.000Z"
+ *   },
+ *   "timestamp": 1761540000000
+ * }
+ */
+testRpc.post('/kv', async (c) => {
+  try {
+    const kv = await paper_rewriting_kv
+    const testKey = 'test-rpc:test_key'
+    const testValue = 'test_value'
+
+    await kv.put(testKey, testValue)
+    const storedValue = await kv.get(testKey, { type: 'text' }) as string | null
+
+    if (!storedValue) {
+      return c.json(createErrorResponse('KV 读取失败', 500), 500)
+    }
+
+    // await kv.delete(testKey)
+
+    return c.json(createSuccessResponse({
+      key: testKey,
+      value: storedValue,
+      timestamp: new Date().toISOString(),
+    }, 'KV 测试成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : 'KV 测试异常'
+    return c.json(createErrorResponse(message, 500), 500)
+  }
+})
+
 export default testRpc

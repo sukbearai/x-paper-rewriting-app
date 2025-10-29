@@ -1,12 +1,7 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 // import { ipRestriction } from 'hono/ip-restriction';
-import type { KVNamespace } from './env'
 import { otp, sms, testRpc, user } from './routers/index'
-
-declare global {
-  let my_kv: KVNamespace
-}
 
 const app = new Hono().basePath('/')
 

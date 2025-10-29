@@ -23,4 +23,8 @@ declare class KVNamespace {
   }): Promise<ListResult>
 }
 
+declare global {
+  const paper_rewriting_kv: KVNamespace
+}
+
 export type { KVNamespace }
