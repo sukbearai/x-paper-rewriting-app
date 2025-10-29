@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 // import { ipRestriction } from 'hono/ip-restriction';
 import type { KVNamespace } from './env'
-import { book, otp, sms, ssr, testRpc, upload, user } from './routers/index'
+import { otp, sms, testRpc, user } from './routers/index'
 
 declare global {
   let my_kv: KVNamespace
@@ -11,9 +11,6 @@ declare global {
 const app = new Hono().basePath('/')
 
 // Register route modules
-app.route('/book', book)
-app.route('/upload', upload)
-app.route('/ssr', ssr)
 app.route('/user', user)
 app.route('/sms', sms)
 app.route('/otp', otp)
