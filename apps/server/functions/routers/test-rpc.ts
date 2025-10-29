@@ -109,7 +109,7 @@ testRpc.post('/kv-token', async (c) => {
   return c.json(createSuccessResponse({
     cheeyuanToken: (c.var as Variables).cheeyuanToken,
     reduceAiToken: (c.var as Variables).reduceAiToken,
-  }, '获取成功'))
+  }, '获取第三方Token成功'))
 })
 
 export default testRpc
