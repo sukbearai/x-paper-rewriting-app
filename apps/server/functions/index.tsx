@@ -1,9 +1,13 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 // import { ipRestriction } from 'hono/ip-restriction';
+import { externalTokenMiddleware } from './middleware/external-tokens'
 import { otp, sms, testRpc, user } from './routers/index'
 
 const app = new Hono().basePath('/')
+
+// External token bootstrap
+app.use('*', externalTokenMiddleware)
 
 // Register route modules
 app.route('/user', user)

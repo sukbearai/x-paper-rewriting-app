@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import type { Variables } from '../middleware/external-tokens'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseClient } from '@/utils/db'
@@ -102,6 +103,13 @@ testRpc.post('/kv', async (c) => {
     const message = err instanceof Error ? err.message : 'KV 测试异常'
     return c.json(createErrorResponse(message, 500), 500)
   }
+})
+
+testRpc.post('/kv-token', async (c) => {
+  return c.json(createSuccessResponse({
+    cheeyuanToken: (c.var as Variables).cheeyuanToken,
+    reduceAiToken: (c.var as Variables).reduceAiToken,
+  }, '获取成功'))
 })
 
 export default testRpc
