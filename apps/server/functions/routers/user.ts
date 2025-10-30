@@ -102,7 +102,7 @@ const changePasswordSchema = z.object({
   new_password: z.string()
     .min(6, '新密码至少6个字符')
     .max(100, '新密码最多100个字符'),
-}).refine((data) => data.current_password !== data.new_password, {
+}).refine(data => data.current_password !== data.new_password, {
   message: '新密码不能与当前密码相同',
   path: ['new_password'],
 })
@@ -201,11 +201,6 @@ user.post('/login', async (c) => {
 
       if (verifyError || !verifyData.session || !verifyData.user) {
         return c.json(createErrorResponse('验证码错误或已过期', 401), 401)
-      }
-
-      // 确保验证的手机号与用户档案中的手机号一致
-      if (verifyData.user.phone !== phone) {
-        return c.json(createErrorResponse('手机号与验证码不匹配', 401), 401)
       }
 
       // 返回用户信息和token
