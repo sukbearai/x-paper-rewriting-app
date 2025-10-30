@@ -1,0 +1,49 @@
+edition: 3.0.0
+name: fc3-sms-hook
+access: default
+resources:
+  fc3-sms-hook:
+    component: fc3
+    props:
+      region: cn-hangzhou
+      handler: index.handler
+      role: ''
+      disableOndemand: false
+      description: ''
+      timeout: 300
+      diskSize: 512
+      internetAccess: true
+      resourceGroupId: rg-acfm4cbxzse2n6i
+      instanceIsolationMode: SHARE
+      functionName: sms-hook
+      sessionAffinity: NONE
+      runtime: nodejs20
+      cpu: 0.35
+      instanceConcurrency: 20
+      memorySize: 1024
+      environmentVariables:
+        PATH: >-
+          /opt/nodejs16/bin:/usr/local/bin/apache-maven/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/ruby/bin:/opt/bin:/code:/code/bin
+        LD_LIBRARY_PATH: /code:/code/lib:/usr/lib:/opt/lib:/usr/local/lib
+      vpcConfig:
+        securityGroupId: sg-bp12b9k5s3ythvcks0f2
+        vpcId: vpc-bp1xdzy2f0g7ch22rt9p1
+        vSwitchIds:
+          - vsw-bp1fue2s0xg5rks2uqsc0
+      code: ./dist
+      triggers:
+        - triggerConfig:
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - HEAD
+              - OPTIONS
+              - PATCH
+            authType: function
+            disableURLInternet: false
+          triggerName: defaultTrigger
+          description: ''
+          qualifier: LATEST
+          triggerType: http
