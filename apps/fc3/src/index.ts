@@ -84,8 +84,11 @@ function createSuccessResponse(data?: unknown, message?: string) {
 
 function getEnvOrThrow(c: any, key: keyof SmsEnvBindings): string {
   const v = c.env?.[key]
-  if (!v)
+  if (!v) {
+    console.log(`环境变量 ${String(key)} 未设置`)
     throw new Error(`环境变量 ${String(key)} 未设置`)
+  }
+  console.log(`环境变量 ${String(key)} 已设置`)
   return v as string
 }
 
@@ -142,11 +145,14 @@ async function signTc3(secretId: string, secretKey: string, service: string, hos
 // ---- 腾讯云短信发送函数 ----------------------------------------------------
 
 async function sendTencentSms(c: any, phone: string, code: string): Promise<TencentSmsResponse> {
+  console.log('=== 腾讯短信发送函数开始 ===')
   const SECRET_ID = getEnvOrThrow(c, 'SECRET_ID')
   const SECRET_KEY = getEnvOrThrow(c, 'SECRET_KEY')
   const SDK_APP_ID = getEnvOrThrow(c, 'TENCENT_SMS_SDK_APP_ID')
   const SIGN_NAME = getEnvOrThrow(c, 'TENCENT_SMS_SIGN')
   const TEMPLATE_ID = getEnvOrThrow(c, 'TENCENT_SMS_TEMPLATE_ID')
+
+  console.log('环境变量检查 - SDK_APP_ID:', SDK_APP_ID, 'SIGN_NAME:', SIGN_NAME, 'TEMPLATE_ID:', TEMPLATE_ID)
 
   const service = 'sms'
   const host = 'sms.tencentcloudapi.com'
@@ -159,6 +165,7 @@ async function sendTencentSms(c: any, phone: string, code: string): Promise<Tenc
 
   // 腾讯要求 E.164 格式，例如 +8613711112222
   const phoneNumberSet = [/^1\d{10}$/.test(phone) ? `+86${phone}` : phone]
+  console.log('处理后的手机号:', phoneNumberSet)
 
   const payload: TencentSmsPayload = {
     SmsSdkAppId: SDK_APP_ID,
@@ -167,25 +174,36 @@ async function sendTencentSms(c: any, phone: string, code: string): Promise<Tenc
     PhoneNumberSet: phoneNumberSet,
     TemplateParamSet: [code],
   }
+  console.log('腾讯短信请求载荷:', JSON.stringify(payload, null, 2))
 
   const { authorization, timestamp } = await signTc3(SECRET_ID, SECRET_KEY, service, host, action, version, region, payload, contentType)
+  console.log('签名生成成功 - timestamp:', timestamp)
+
+  const requestHeaders = {
+    'Content-Type': contentType,
+    'Host': host,
+    'X-TC-Action': action,
+    'X-TC-Version': version,
+    'X-TC-Region': region,
+    'X-TC-Timestamp': String(timestamp),
+    'Authorization': authorization,
+    ...(sessionToken ? { 'X-TC-Token': sessionToken } : {}),
+    ...(language ? { 'X-TC-Language': language } : {}),
+  }
+  console.log('请求头:', JSON.stringify(requestHeaders, null, 2))
 
   const resp = await fetch(`https://${host}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': contentType,
-      'Host': host,
-      'X-TC-Action': action,
-      'X-TC-Version': version,
-      'X-TC-Region': region,
-      'X-TC-Timestamp': String(timestamp),
-      'Authorization': authorization,
-      ...(sessionToken ? { 'X-TC-Token': sessionToken } : {}),
-      ...(language ? { 'X-TC-Language': language } : {}),
-    },
+    headers: requestHeaders,
     body: JSON.stringify(payload),
   })
-  const data: TencentSmsResponse = await resp.json().catch(() => ({} as TencentSmsResponse))
+
+  console.log('腾讯云响应状态:', resp.status, resp.statusText)
+  const data: TencentSmsResponse = await resp.json().catch((err) => {
+    console.log('JSON 解析失败:', err)
+    return {} as TencentSmsResponse
+  })
+  console.log('腾讯云响应数据:', JSON.stringify(data, null, 2))
   return data
 }
 
@@ -197,42 +215,63 @@ const app = new Hono()
 
 app.post('/', async (c) => {
   try {
+    console.log('=== SMS Webhook 请求开始 ===')
     const rawBody = await c.req.text()
     const headers = Object.fromEntries(c.req.raw.headers.entries())
 
+    console.log('请求头:', JSON.stringify(headers, null, 2))
+    console.log('请求体:', rawBody)
+
     const hookSecretRaw = getEnvOrThrow(c, 'SUPABASE_HOOK_SECRET')
     const base64Secret = hookSecretRaw.startsWith('v1,whsec_') ? hookSecretRaw.replace('v1,whsec_', '') : hookSecretRaw
+
+    console.log('Webhook Secret 长度:', base64Secret.length)
 
     let event: SupabaseSmsWebhookEvent
     try {
       const wh = new Webhook(base64Secret)
       event = wh.verify(rawBody, headers) as SupabaseSmsWebhookEvent
+      console.log('Webhook 验证成功，事件:', JSON.stringify(event, null, 2))
     }
-    catch {
+    catch (err) {
+      console.log('Webhook 签名校验失败:', err)
       return c.json(createErrorResponse('Webhook 签名校验失败', 401), 401)
     }
 
     const phone = event?.user?.phone
     const code = event?.sms?.otp
-    if (!phone || !code)
+    console.log('提取的参数 - phone:', phone, 'code:', code)
+    if (!phone || !code) {
+      console.log('缺少 phone 或 otp')
       return c.json(createErrorResponse('缺少 phone 或 otp', 400), 400)
-    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone))
+    }
+    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone)) {
+      console.log('手机号格式不正确:', phone)
       return c.json(createErrorResponse('手机号格式不正确', 400), 400)
-    if (!/^\d{1,6}$/.test(code))
+    }
+    if (!/^\d{1,6}$/.test(code)) {
+      console.log('验证码格式不正确:', code)
       return c.json(createErrorResponse('验证码格式不正确，需为 1-6 位数字', 400), 400)
+    }
 
+    console.log('开始发送腾讯短信...')
     const result = await sendTencentSms(c, phone, code)
+    console.log('腾讯短信返回结果:', JSON.stringify(result, null, 2))
 
     const status = result?.Response?.SendStatusSet?.[0]
     if (status?.Code === 'Ok') {
+      console.log('短信发送成功')
       return c.json({})
     }
 
     const errorMessage = status?.Message || result?.Response?.Error?.Message || '短信发送失败'
+    console.log('短信发送失败:', errorMessage)
     return c.json(createErrorResponse(errorMessage, 500, { requestId: result?.Response?.RequestId, tencentResult: result }), 500)
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.log('请求处理异常:', err)
+    console.log('错误信息:', message)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })
@@ -241,38 +280,54 @@ app.post('/', async (c) => {
 
 app.post('/dev', async (c) => {
   try {
+    console.log('=== 开发调试接口请求开始 ===')
     let payload: DevSendSmsRequest
     try {
       payload = await c.req.json<DevSendSmsRequest>()
+      console.log('开发接口请求参数:', JSON.stringify(payload, null, 2))
     }
     catch {
+      console.log('请求体格式错误，应为 JSON')
       return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
     }
 
     const phone = payload?.phone?.trim()
     const code = payload?.code?.trim()
+    console.log('提取的参数 - phone:', phone, 'code:', code)
 
-    if (!phone || !code)
+    if (!phone || !code) {
+      console.log('缺少 phone 或 code 参数')
       return c.json(createErrorResponse('缺少 phone 或 code 参数', 400), 400)
+    }
 
-    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone))
+    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone)) {
+      console.log('手机号格式不正确:', phone)
       return c.json(createErrorResponse('手机号格式不正确', 400), 400)
+    }
 
-    if (!/^\d{1,6}$/.test(code))
+    if (!/^\d{1,6}$/.test(code)) {
+      console.log('验证码格式不正确:', code)
       return c.json(createErrorResponse('验证码格式不正确，需为 1-6 位数字', 400), 400)
+    }
 
+    console.log('开始发送腾讯短信（开发模式）...')
     const result = await sendTencentSms(c, phone, code)
+    console.log('腾讯短信返回结果:', JSON.stringify(result, null, 2))
 
     const status = result?.Response?.SendStatusSet?.[0]
     if (status?.Code === 'Ok') {
+      console.log('开发模式短信发送成功')
       return c.json(createSuccessResponse({ phone, code, serialNo: status.SerialNo, requestId: result?.Response?.RequestId }, '短信发送成功'))
     }
 
     const errorMessage = status?.Message || result?.Response?.Error?.Message || '短信发送失败'
+    console.log('开发模式短信发送失败:', errorMessage)
     return c.json(createErrorResponse(errorMessage, 500, { requestId: result?.Response?.RequestId, tencentResult: result }), 500)
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.log('开发接口处理异常:', err)
+    console.log('错误信息:', message)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })
