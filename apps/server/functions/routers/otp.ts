@@ -39,10 +39,13 @@ otpRouter.post('/', async (c) => {
     const { phone, purpose } = parsed.data
     const supabase = createSupabaseClient(c.env)
 
+    // 去掉手机号开头的+号，因为Supabase存储时会去掉+号
+    const normalizedPhone = phone.replace(/^\+/, '')
+
     const { data: existingProfile, error: profileError } = await supabase
       .from('profiles')
       .select('id')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .maybeSingle()
 
     if (profileError)

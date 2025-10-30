@@ -181,11 +181,14 @@ user.post('/login', async (c) => {
 
     // 手机号OTP登录
     if (phone && verification_code) {
+      // 去掉手机号开头的+号，因为Supabase存储时会去掉+号
+      const normalizedPhone = phone.replace(/^\+/, '')
+
       // 查询用户档案
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
-        .eq('phone', phone)
+        .eq('phone', normalizedPhone)
         .single()
 
       if (profileError || !profile) {
@@ -285,10 +288,13 @@ user.post('/register', async (c) => {
     // 如果提供了手机号，检查是否已存在
     let existingPhone = null
     if (phone) {
+      // 去掉手机号开头的+号，因为Supabase存储时会去掉+号
+      const normalizedPhone = phone.replace(/^\+/, '')
+
       const { data: existingPhoneData, error: phoneError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('phone', phone)
+        .eq('phone', normalizedPhone)
         .maybeSingle()
 
       if (phoneError) {
@@ -336,7 +342,9 @@ user.post('/register', async (c) => {
         return c.json(createErrorResponse('验证码错误或已过期', 400), 400)
       }
 
-      if (verifyData.user.phone !== phone) {
+      // 去掉手机号开头的+号进行比较，因为Supabase存储时会去掉+号
+      const normalizedPhone = phone.replace(/^\+/, '')
+      if (verifyData.user.phone !== normalizedPhone) {
         return c.json(createErrorResponse('手机号与验证码不匹配', 400), 400)
       }
 
@@ -421,14 +429,14 @@ user.post('/register', async (c) => {
       existingInviteCode = data
     }
 
-    // 创建用户档案
+      // 创建用户档案
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .insert({
         user_id: authUserId,
         username,
         email,
-        phone: phone || null,
+        phone: phone ? phone.replace(/^\+/, '') : null, // 去掉+号存储，与数据库保持一致
         invite_code: userInviteCode,
         invited_by: invitedByProfile?.id || null,
         role: 'user',
