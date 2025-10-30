@@ -66,6 +66,9 @@ catalogs:
     fs-extra:
       specifier: ^11.2.0
       version: 11.2.0
+    hono:
+      specifier: ^4.7.10
+      version: 4.9.7
     magic-color:
       specifier: ^2.0.0
       version: 2.0.0
@@ -220,7 +223,7 @@ importers:
   apps/fc3:
     dependencies:
       hono:
-        specifier: ^4.7.10
+        specifier: 'catalog:'
         version: 4.9.7
       hono-alibaba-cloud-fc3-adapter:
         specifier: ^1.0.2
@@ -245,7 +248,7 @@ importers:
         specifier: ^11.11.1
         version: 11.11.1
       hono:
-        specifier: ^4.7.10
+        specifier: 'catalog:'
         version: 4.9.7
       marked:
         specifier: ^15.0.12
