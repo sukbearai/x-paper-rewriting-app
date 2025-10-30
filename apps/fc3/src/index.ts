@@ -83,7 +83,7 @@ function createSuccessResponse(data?: unknown, message?: string) {
 }
 
 function getEnvOrThrow(c: any, key: keyof SmsEnvBindings): string {
-  const v = c.env?.[key]
+  const v = c.env?.[key] || process.env[key]
   if (!v) {
     console.log(`环境变量 ${String(key)} 未设置`)
     throw new Error(`环境变量 ${String(key)} 未设置`)
@@ -93,7 +93,7 @@ function getEnvOrThrow(c: any, key: keyof SmsEnvBindings): string {
 }
 
 function getEnvOptional(c: any, key: keyof SmsEnvBindings): string | undefined {
-  const v = c.env?.[key]
+  const v = c.env?.[key] || process.env[key]
   return typeof v === 'string' && v.trim().length > 0 ? v : undefined
 }
 
