@@ -245,7 +245,7 @@ app.post('/', async (c) => {
       console.log('缺少 phone 或 otp')
       return c.json(createErrorResponse('缺少 phone 或 otp', 400), 400)
     }
-    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone)) {
+    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone) && !/^861\d{10}$/.test(phone)) {
       console.log('手机号格式不正确:', phone)
       return c.json(createErrorResponse('手机号格式不正确', 400), 400)
     }
@@ -300,7 +300,7 @@ app.post('/dev', async (c) => {
       return c.json(createErrorResponse('缺少 phone 或 code 参数', 400), 400)
     }
 
-    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone)) {
+    if (!/^1\d{10}$/.test(phone) && !/^\+\d{6,15}$/.test(phone) && !/^861\d{10}$/.test(phone)) {
       console.log('手机号格式不正确:', phone)
       return c.json(createErrorResponse('手机号格式不正确', 400), 400)
     }
