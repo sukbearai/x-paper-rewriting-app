@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 export interface DataBaseEnvBindings {
   SUPABASE_URL: string
   SUPABASE_ANON_KEY: string
-
+  SUPABASE_SERVICE_ROLE_KEY: string
 }
 
 export function createSupabaseClient(env: DataBaseEnvBindings, access_token?: string) {
@@ -22,6 +22,20 @@ export function createSupabaseClient(env: DataBaseEnvBindings, access_token?: st
               Authorization: `Bearer ${access_token}`,
             }
           : {},
+      },
+    },
+  )
+}
+
+export function createSupabaseAdminClient(env: DataBaseEnvBindings) {
+  return createClient(
+    env.SUPABASE_URL,
+    env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
       },
     },
   )

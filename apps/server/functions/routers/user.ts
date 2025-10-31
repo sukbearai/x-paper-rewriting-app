@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
-import { createSupabaseClient } from '@/utils/db'
+import { createSupabaseAdminClient, createSupabaseClient } from '@/utils/db'
 
 interface LoginRequestBody {
   username?: string
@@ -253,10 +253,11 @@ user.post('/register', async (c) => {
 
     const { username, email, phone, verification_code, password, invite_code } = parsed.data
     const supabase = createSupabaseClient(c.env)
+    const adminSupabase = createSupabaseAdminClient(c.env) // 添加admin客户端
     let authUserId: string | null = null
 
-    // 检查用户名是否已存在
-    const { data: existingUsername, error: usernameError } = await supabase
+    // 使用 admin API 检查用户名是否已存在
+    const { data: existingUsername, error: usernameError } = await adminSupabase
       .from('profiles')
       .select('id')
       .eq('username', username)
@@ -270,8 +271,8 @@ user.post('/register', async (c) => {
       return c.json(createErrorResponse('用户名已存在', 409), 409)
     }
 
-    // 检查邮箱是否已存在
-    const { data: existingEmail, error: emailError } = await supabase
+    // 使用 admin API 检查邮箱是否已存在
+    const { data: existingEmail, error: emailError } = await adminSupabase
       .from('profiles')
       .select('id')
       .eq('email', email)
@@ -285,13 +286,13 @@ user.post('/register', async (c) => {
       return c.json(createErrorResponse('邮箱已被注册', 409), 409)
     }
 
-    // 如果提供了手机号，检查是否已存在
+    // 如果提供了手机号，使用 admin API 检查是否已存在
     let existingPhone = null
     if (phone) {
       // 去掉手机号开头的+号，因为Supabase存储时会去掉+号
       const normalizedPhone = phone.replace(/^\+/, '')
 
-      const { data: existingPhoneData, error: phoneError } = await supabase
+      const { data: existingPhoneData, error: phoneError } = await adminSupabase
         .from('profiles')
         .select('id')
         .eq('phone', normalizedPhone)
@@ -307,10 +308,10 @@ user.post('/register', async (c) => {
       }
     }
 
-    // 如果提供了邀请码，验证其有效性
+    // 如果提供了邀请码，使用 admin API 验证其有效性
     let invitedByProfile = null
     if (invite_code) {
-      const { data: inviterData, error: inviterError } = await supabase
+      const { data: inviterData, error: inviterError } = await adminSupabase
         .from('profiles')
         .select('id, username')
         .eq('invite_code', invite_code.toUpperCase())
@@ -363,14 +364,21 @@ user.post('/register', async (c) => {
       }
 
       try {
-        const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
-          email,
-          password,
-          phone,
-          data: {
-            username,
+        // 使用 admin API 直接更新用户，避免邮箱验证要求
+        const adminSupabase = createSupabaseAdminClient(c.env)
+        const { data: updatedUser, error: updateError } = await adminSupabase.auth.admin.updateUserById(
+          verifyData.user.id,
+          {
+            email,
+            password,
+            phone,
+            user_metadata: {
+              username,
+            },
+            // 确认邮箱，避免登录时的邮箱验证问题
+            email_confirm: true,
           },
-        })
+        )
 
         if (updateError || !updatedUser.user) {
           return c.json(createErrorResponse(updateError?.message || '设置账号信息失败', 400), 400)
@@ -412,7 +420,7 @@ user.post('/register', async (c) => {
 
     // 生成唯一邀请码
     let userInviteCode = generateInviteCode()
-    let { data: existingInviteCode } = await supabase
+    let { data: existingInviteCode } = await adminSupabase
       .from('profiles')
       .select('id')
       .eq('invite_code', userInviteCode)
@@ -421,7 +429,7 @@ user.post('/register', async (c) => {
     // 确保邀请码唯一
     while (existingInviteCode) {
       userInviteCode = generateInviteCode()
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('profiles')
         .select('id')
         .eq('invite_code', userInviteCode)
@@ -429,8 +437,8 @@ user.post('/register', async (c) => {
       existingInviteCode = data
     }
 
-      // 创建用户档案
-    const { data: profileData, error: profileError } = await supabase
+    // 使用 admin API 创建用户档案
+    const { data: profileData, error: profileError } = await adminSupabase
       .from('profiles')
       .insert({
         user_id: authUserId,
