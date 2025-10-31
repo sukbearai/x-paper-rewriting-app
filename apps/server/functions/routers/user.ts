@@ -458,6 +458,16 @@ user.post('/register', async (c) => {
         authUserId,
         error: profileError.message,
       })
+
+      // 档案创建失败，需要清理已创建的认证用户
+      try {
+        const adminSupabase = createSupabaseAdminClient(c.env)
+        await adminSupabase.auth.admin.deleteUser(authUserId)
+        console.log('[register] Successfully cleaned up auth user after profile creation failure')
+      } catch (cleanupError) {
+        console.error('[register] Failed to cleanup auth user after profile creation failure:', cleanupError)
+      }
+
       return c.json(createErrorResponse(profileError.message || '创建用户档案失败', 500), 500)
     }
 
