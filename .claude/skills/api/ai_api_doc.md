@@ -80,7 +80,7 @@ ContentType: application/json
 {
     "code": 1,
     "message": "正在生成中,切勿重复提交，后续生成在使用明细，请耐心等待",
-    "data": 913944 这个是返回的任务id
+    "data": 123456 这个是返回的任务id
 }
 
 #### CHEEYUAN 查询改写结果接口
@@ -124,5 +124,5 @@ ContentType: application/json
     }
 }
 
-说明：resulttext没有数据表面接口正在处理，有数据则为处理完成，可以获取改写后的文本内容，前端可以 3 秒轮询查询。
+说明：resulttext没有数据表明接口正在处理，有数据则为处理完成，可以获取改写后的文本内容，前端可以 3 秒轮询查询。
 改写后的文本内容在data.resulttext字段中。
