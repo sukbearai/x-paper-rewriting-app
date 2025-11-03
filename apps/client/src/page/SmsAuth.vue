@@ -2,6 +2,8 @@
 import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { login, register, sendSmsCode } from '@/api/services'
+import type { LoginParams, RegisterParams, RegisterForm } from '@/api/interface'
 
 const activeName = ref<'login' | 'register'>('login')
 const loginRef = ref<FormInstance>()
@@ -9,17 +11,9 @@ const registerRef = ref<FormInstance>()
 const cooldown = ref(0)
 const showAuthModal = ref(false)
 
-interface Form {
-  mobile: string
-  password?: string
-  confirmPassword?: string
-  code?: string
-  invite?: string
-}
-
-const loginForm = reactive<Form>({ mobile: '', password: '' })
-const registerForm = reactive<Form>({
-  mobile: '',
+const loginForm = reactive<LoginParams>({ phone: '', password: '' })
+const registerForm = reactive<RegisterForm>({
+  phone: '',
   password: '',
   confirmPassword: '',
   code: '',
@@ -27,8 +21,8 @@ const registerForm = reactive<Form>({
 })
 
 const rules = reactive<FormRules>({
-  mobile: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
+  phone: [
+    { required: true, message: '请输入正确的中国大陆手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式错误', trigger: 'blur' },
   ],
   password: [
@@ -38,10 +32,10 @@ const rules = reactive<FormRules>({
 })
 
 const registerRules = reactive<FormRules>({
-  mobile: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式错误', trigger: 'blur' },
-  ],
+  // phone: [
+  //   { required: true, message: '请输入正确的中国大陆手机号', trigger: 'blur' },
+  //   { pattern: /^1[3-9]\d{9}$/, message: '手机号格式错误', trigger: 'blur' },
+  // ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能小于6位', trigger: 'blur' },
@@ -84,10 +78,16 @@ async function sendSms(type: 'login' | 'register') {
   if (!ref.value)
     return
   try {
-    await ref.value.validateField('mobile')
+    console.log('发送验证码', registerForm)
+
+    await ref.value.validateField('phone')
     // TODO: 调后端发送短信接口
-    ElMessage.success('验证码已发送')
-    startCooldown()
+    sendSmsCode({ phone: `+86${registerForm.phone}` }).then((res) => {
+      console.log(res)
+
+      ElMessage.success('验证码已发送')
+      startCooldown()
+    })
   }
   catch {
     ElMessage.warning('请先修正手机号')
@@ -100,6 +100,20 @@ async function submit(type: 'login' | 'register') {
     return
   try {
     await ref.value.validate()
+    if (type === 'login') { // 登录
+      await login(loginForm)
+    }
+    else { // 注册
+      const payload: RegisterParams = {
+        email: '',
+        username: '',
+        phone: registerForm.phone,
+        password: registerForm.password,
+        otp: registerForm.code,
+        inviteCode: registerForm.invite,
+      }
+      await register(payload)
+    }
     ElMessage.success(type === 'login' ? '登录成功' : '注册成功')
     showAuthModal.value = false
     // TODO: 调用真实登录/注册接口
@@ -146,8 +160,19 @@ function openAuthModal() {
         <!-- 登录 -->
         <el-tab-pane label="登录" name="login">
           <el-form ref="loginRef" :model="loginForm" :rules="rules" label-width="80px">
-            <el-form-item label="手机号" prop="mobile">
-              <el-input v-model="loginForm.mobile" placeholder="请输入手机号" maxlength="11" />
+            <el-form-item label="手机号" prop="phone">
+              <el-input
+                v-model="loginForm.phone"
+                placeholder="请输入11位手机号"
+                maxlength="11"
+                pattern="[0-9]*"
+                inputmode="numeric"
+              >
+                <!-- 固定前缀 -->
+                <template #prepend>
+                  +86
+                </template>
+              </el-input>
             </el-form-item>
 
             <el-form-item label="密码" prop="password">
@@ -165,8 +190,19 @@ function openAuthModal() {
         <!-- 注册 -->
         <el-tab-pane label="注册" name="register">
           <el-form ref="registerRef" :model="registerForm" :rules="registerRules" label-width="80px">
-            <el-form-item label="手机号" prop="mobile">
-              <el-input v-model="registerForm.mobile" placeholder="请输入手机号" maxlength="11" />
+            <el-form-item label="手机号" prop="phone">
+              <el-input
+                v-model="registerForm.phone"
+                placeholder="请输入11位手机号"
+                maxlength="11"
+                pattern="[0-9]*"
+                inputmode="numeric"
+              >
+                <!-- 固定前缀 -->
+                <template #prepend>
+                  +86
+                </template>
+              </el-input>
             </el-form-item>
 
             <el-form-item label="密码" prop="password">
