@@ -108,7 +108,7 @@ function goToRecharge() {
       mode="horizontal" :ellipsis="false" text-color="#606266" active-text-color="#409EFF" @select="handleMenuSelect"
     >
       <h1 class="text-xl font-bold text-gray-900 flex items-center gap-1 pl-6" style="font-family: 'Ma Shan Zheng', cursive;">
-        <svg-icon name="xingxi" style="height: 34px; width: 34px;" />
+        <!-- <svg-icon name="xingxi" style="height: 34px; width: 34px;" /> -->
         星辰写作
       </h1>
       <div class="flex-grow" />

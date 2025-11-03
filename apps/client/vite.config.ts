@@ -28,4 +28,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://rewriting.congrongtech.cn',
+        changeOrigin: true, // 关键
+        secure: false, // 忽略 https 证书
+      },
+      '/otp': {
+        target: 'https://rewriting.congrongtech.cn',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 })

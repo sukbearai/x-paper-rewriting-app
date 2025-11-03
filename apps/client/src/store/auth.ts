@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { login as apiLogin, register as apiRegister } from '../api/user'
+import { login as apiLogin, register as apiRegister } from '../api/services'
 
 export const useAuthStore = defineStore('auth', () => {
   const mobile = ref('')
