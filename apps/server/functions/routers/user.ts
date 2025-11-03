@@ -256,32 +256,27 @@ user.post('/register', async (c) => {
     const adminSupabase = createSupabaseAdminClient(c.env) // 添加admin客户端
     let authUserId: string | null = null
 
-    // 使用 admin API 检查用户名是否已存在
-    const { data: existingUsername, error: usernameError } = await adminSupabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle()
+    // 批量检查用户名、邮箱、手机号是否已存在
+    console.log('[register] 批量检查用户信息是否存在', { username, email })
 
-    if (usernameError) {
-      return c.json(createErrorResponse(`用户名检查失败: ${usernameError.message || '服务器内部错误'} [步骤: 1/8]`, 500), 500)
+    const batchChecks = await adminSupabase
+      .from('profiles')
+      .select('username, email, phone, invite_code')
+      .or(`username.eq.${username},email.eq.${email}${phone ? `,phone.eq.${phone.replace(/^\+/, '')}` : ''}`)
+      .limit(100)
+
+    if (batchChecks.error) {
+      return c.json(createErrorResponse(`批量检查失败: ${'服务器内部错误'} [步骤: 1/4]`, 500), 500)
     }
 
+    // 检查用户名是否已存在
+    const existingUsername = batchChecks.data?.find(item => item.username === username)
     if (existingUsername) {
       return c.json(createErrorResponse('用户名已存在', 409), 409)
     }
 
-    // 使用 admin API 检查邮箱是否已存在
-    const { data: existingEmail, error: emailError } = await adminSupabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle()
-
-    if (emailError) {
-      return c.json(createErrorResponse(`邮箱检查失败: ${emailError.message || '服务器内部错误'} [步骤: 2/8]`, 500), 500)
-    }
-
+    // 检查邮箱是否已存在
+    const existingEmail = batchChecks.data?.find(item => item.email === email)
     if (existingEmail) {
       return c.json(createErrorResponse('邮箱已被注册', 409), 409)
     }
@@ -289,20 +284,8 @@ user.post('/register', async (c) => {
     // 如果提供了手机号，使用 admin API 检查是否已存在
     let existingPhone = null
     if (phone) {
-      // 去掉手机号开头的+号，因为Supabase存储时会去掉+号
       const normalizedPhone = phone.replace(/^\+/, '')
-
-      const { data: existingPhoneData, error: phoneError } = await adminSupabase
-        .from('profiles')
-        .select('id')
-        .eq('phone', normalizedPhone)
-        .maybeSingle()
-
-      if (phoneError) {
-        return c.json(createErrorResponse(`手机号检查失败: ${phoneError.message || '服务器内部错误'} [步骤: 3/8]`, 500), 500)
-      }
-
-      existingPhone = existingPhoneData
+      existingPhone = batchChecks.data?.find(item => item.phone === normalizedPhone)
       if (existingPhone) {
         return c.json(createErrorResponse('手机号已被注册', 409), 409)
       }
@@ -311,6 +294,8 @@ user.post('/register', async (c) => {
     // 如果提供了邀请码，使用 admin API 验证其有效性
     let invitedByProfile = null
     if (invite_code) {
+      console.log('[register] 验证邀请码:', { invite_code })
+
       const { data: inviterData, error: inviterError } = await adminSupabase
         .from('profiles')
         .select('id, username')
@@ -318,7 +303,7 @@ user.post('/register', async (c) => {
         .maybeSingle()
 
       if (inviterError) {
-        return c.json(createErrorResponse(`邀请码验证失败: ${inviterError.message || '服务器内部错误'} [步骤: 4/8]`, 500), 500)
+        return c.json(createErrorResponse(`邀请码验证失败: ${inviterError.message || '服务器内部错误'} [步骤: 2/4]`, 500), 500)
       }
 
       if (!inviterData) {
@@ -381,7 +366,7 @@ user.post('/register', async (c) => {
         )
 
         if (updateError || !updatedUser.user) {
-          return c.json(createErrorResponse(`更新认证用户失败: ${updateError?.message || '设置账号信息失败'} [步骤: 6/8]`, 400), 400)
+          return c.json(createErrorResponse(`更新认证用户失败: ${updateError?.message || '设置账号信息失败'} [步骤: 3/4]`, 400), 400)
         }
 
         authUserId = updatedUser.user.id
@@ -407,7 +392,7 @@ user.post('/register', async (c) => {
       })
 
       if (signUpError || !authData.user) {
-        return c.json(createErrorResponse(`邮箱注册失败: ${signUpError?.message || '注册失败'} [步骤: 7/8]`, 400), 400)
+        return c.json(createErrorResponse(`邮箱注册失败: ${signUpError?.message || '注册失败'} [步骤: 4/4]`, 400), 400)
       }
 
       authUserId = authData.user.id
@@ -418,23 +403,40 @@ user.post('/register', async (c) => {
       return c.json(createErrorResponse('注册失败，请稍后重试', 500), 500)
     }
 
-    // 生成唯一邀请码
+    // 生成唯一邀请码 - 批量优化版本
     let userInviteCode = generateInviteCode()
-    let { data: existingInviteCode } = await adminSupabase
-      .from('profiles')
-      .select('id')
-      .eq('invite_code', userInviteCode)
-      .maybeSingle()
+    let inviteCodeCheckCount = 0
+    const maxInviteCodeAttempts = 10
 
-    // 确保邀请码唯一
-    while (existingInviteCode) {
+    // 收集所有需要避免的邀请码（包括已存在的和输入的邀请码）
+    const existingInviteCodes = new Set(
+      batchChecks.data?.map(item => item.invite_code).filter(Boolean) || [],
+    )
+    if (invite_code) {
+      existingInviteCodes.add(invite_code.toUpperCase())
+    }
+
+    // 生成不冲突的邀请码
+    while (inviteCodeCheckCount < maxInviteCodeAttempts) {
+      if (!existingInviteCodes.has(userInviteCode)) {
+        // 验证生成的邀请码确实不存在
+        const { data: inviteCheck } = await adminSupabase
+          .from('profiles')
+          .select('id')
+          .eq('invite_code', userInviteCode)
+          .maybeSingle()
+
+        if (!inviteCheck) {
+          break // 找到唯一邀请码
+        }
+        existingInviteCodes.add(userInviteCode)
+      }
       userInviteCode = generateInviteCode()
-      const { data } = await adminSupabase
-        .from('profiles')
-        .select('id')
-        .eq('invite_code', userInviteCode)
-        .maybeSingle()
-      existingInviteCode = data
+      inviteCodeCheckCount++
+    }
+
+    if (inviteCodeCheckCount >= maxInviteCodeAttempts) {
+      return c.json(createErrorResponse('邀请码生成失败，请重试 [步骤: 3/4]', 500), 500)
     }
 
     // 使用 admin API 创建用户档案
@@ -464,11 +466,12 @@ user.post('/register', async (c) => {
         const adminSupabase = createSupabaseAdminClient(c.env)
         await adminSupabase.auth.admin.deleteUser(authUserId)
         console.log('[register] Successfully cleaned up auth user after profile creation failure')
-      } catch (cleanupError) {
+      }
+      catch (cleanupError) {
         console.error('[register] Failed to cleanup auth user after profile creation failure:', cleanupError)
       }
 
-      return c.json(createErrorResponse(`创建用户档案失败: ${profileError.message || '用户档案创建失败'} [步骤: 8/8]`, 500), 500)
+      return c.json(createErrorResponse(`创建用户档案失败: ${profileError.message || '用户档案创建失败'} [步骤: 4/4]`, 500), 500)
     }
 
     return c.json(createSuccessResponse({
