@@ -264,7 +264,7 @@ user.post('/register', async (c) => {
       .maybeSingle()
 
     if (usernameError) {
-      return c.json(createErrorResponse(usernameError.message || '服务器内部错误', 500), 500)
+      return c.json(createErrorResponse(`用户名检查失败: ${usernameError.message || '服务器内部错误'} [步骤: 1/8]`, 500), 500)
     }
 
     if (existingUsername) {
@@ -279,7 +279,7 @@ user.post('/register', async (c) => {
       .maybeSingle()
 
     if (emailError) {
-      return c.json(createErrorResponse(emailError.message || '服务器内部错误', 500), 500)
+      return c.json(createErrorResponse(`邮箱检查失败: ${emailError.message || '服务器内部错误'} [步骤: 2/8]`, 500), 500)
     }
 
     if (existingEmail) {
@@ -299,7 +299,7 @@ user.post('/register', async (c) => {
         .maybeSingle()
 
       if (phoneError) {
-        return c.json(createErrorResponse(phoneError.message || '服务器内部错误', 500), 500)
+        return c.json(createErrorResponse(`手机号检查失败: ${phoneError.message || '服务器内部错误'} [步骤: 3/8]`, 500), 500)
       }
 
       existingPhone = existingPhoneData
@@ -318,7 +318,7 @@ user.post('/register', async (c) => {
         .maybeSingle()
 
       if (inviterError) {
-        return c.json(createErrorResponse(inviterError.message || '服务器内部错误', 500), 500)
+        return c.json(createErrorResponse(`邀请码验证失败: ${inviterError.message || '服务器内部错误'} [步骤: 4/8]`, 500), 500)
       }
 
       if (!inviterData) {
@@ -360,7 +360,7 @@ user.post('/register', async (c) => {
       })
 
       if (setSessionError) {
-        return c.json(createErrorResponse(setSessionError.message || '设置账号信息失败', 400), 400)
+        return c.json(createErrorResponse(`设置会话失败: ${setSessionError.message || '设置账号信息失败'} [步骤: 5/8]`, 400), 400)
       }
 
       try {
@@ -381,7 +381,7 @@ user.post('/register', async (c) => {
         )
 
         if (updateError || !updatedUser.user) {
-          return c.json(createErrorResponse(updateError?.message || '设置账号信息失败', 400), 400)
+          return c.json(createErrorResponse(`更新认证用户失败: ${updateError?.message || '设置账号信息失败'} [步骤: 6/8]`, 400), 400)
         }
 
         authUserId = updatedUser.user.id
@@ -407,7 +407,7 @@ user.post('/register', async (c) => {
       })
 
       if (signUpError || !authData.user) {
-        return c.json(createErrorResponse(signUpError?.message || '注册失败', 400), 400)
+        return c.json(createErrorResponse(`邮箱注册失败: ${signUpError?.message || '注册失败'} [步骤: 7/8]`, 400), 400)
       }
 
       authUserId = authData.user.id
@@ -468,7 +468,7 @@ user.post('/register', async (c) => {
         console.error('[register] Failed to cleanup auth user after profile creation failure:', cleanupError)
       }
 
-      return c.json(createErrorResponse(profileError.message || '创建用户档案失败', 500), 500)
+      return c.json(createErrorResponse(`创建用户档案失败: ${profileError.message || '用户档案创建失败'} [步骤: 8/8]`, 500), 500)
     }
 
     return c.json(createSuccessResponse({
@@ -485,7 +485,7 @@ user.post('/register', async (c) => {
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
-    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+    return c.json(createErrorResponse(`注册过程未知错误: ${message || '服务器内部错误'} [步骤: 异常捕获]`, 500), 500)
   }
 })
 
