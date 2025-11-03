@@ -130,7 +130,7 @@ function buildEndpoint(base: string, path: string): string {
 
 function createTokenSources(config: ExternalTokenEnvConfig): TokenSource[] {
   const cheeyuanLoginUrl = buildEndpoint(config.cheeyuanApiUrl, CHEEYUAN_LOGIN_PATH)
-  const reduceAiLoginUrl = buildEndpoint(config.reduceAiApiUrl, REDUCEAI_LOGIN_PATH)
+  const reduceAiLoginUrl = buildEndpoint(`http://121.43.167.195:5173/api`, REDUCEAI_LOGIN_PATH)
 
   return [
     {

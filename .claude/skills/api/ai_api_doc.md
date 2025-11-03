@@ -37,33 +37,27 @@ ContentType: application/json
   "newBalance": 462
 }
 
-#### REDUCEAI 任务进度轮询接口
-
-baseUrl: c.env.REDUCEAI_API_URL
-POST: /progress/:taskId
-header:
-"authorization"：Bearer {reduceAiToken}，其中{reduceAiToken}从环境变量 `c.var.reduceAiToken` 获取。
-ContentType: application/json
-
-出参：
-{
-  "status": "processing", // waiting等待处理、processing处理中、completed处理完成
-  "progress": 0, // processing处理中时具体处理进度，最大值100
-  "queuePosition": 0, // waiting等待处理时等待的队列位置，一般最多10s完成一次处理（上限500字）
-  "cost": 24 // 积分花费
-}
-
-说明：前端轮询接口，最多3s调用一次
-
 #### REDUCEAI 任务结果获取接口
 
-baseUrl: http://47.111.148.34:3070
+baseUrl: `c.env.REDUCEAI_API_URL`
 POST: /result/:taskId
 header:
 "authorization"：Bearer {reduceAiToken}，其中{reduceAiToken}从环境变量 `c.var.reduceAiToken` 获取。
 ContentType: application/json
 
 出参：
+{
+    "userId": 98625456,
+    "toolName": "onlyai",
+    "status": "completed",
+    "progress": 39,
+    "totalSentences": 1,
+    "processedSentences": 0,
+    "result": "12231",
+    "queuePosition": 0,
+    "cost": 5
+}
+OR
 {"result":"测试验证检测试验考察检验"}
 
 ### CHEEYUAN接入指南
