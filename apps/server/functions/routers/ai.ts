@@ -18,8 +18,9 @@ const POINTS_PER_1000_CHARS = 3 // 每1000字消耗3积分
  * 计算任务积分消耗
  */
 function calculateTaskCost(textLength: number): number {
-  // 每1000字消耗3积分，按实际字数比例计算
-  return Math.ceil((textLength / 1000) * POINTS_PER_1000_CHARS * 10) / 10 // 保留一位小数
+  // 每1000字消耗3积分，按实际字数比例计算，保留3位小数不四舍五入
+  const cost = (textLength / 1000) * POINTS_PER_1000_CHARS
+  return Math.trunc(cost * 1000) / 1000 // 保留3位小数，截取而不四舍五入
 }
 
 /**
@@ -66,10 +67,11 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
   }
 
   // 扣除积分
+  const newBalance = Math.trunc((currentPoints - points) * 1000) / 1000 // 保留3位小数，截取而不四舍五入
   const { error } = await supabase
     .from('profiles')
     .update({
-      points_balance: currentPoints - points,
+      points_balance: newBalance,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
@@ -86,7 +88,7 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
       profile_id: profileData.id,
       transaction_type: 'spend',
       amount: -points,
-      balance_after: currentPoints - points,
+      balance_after: newBalance, // 使用处理后的新余额
       description: 'AI降重/降AI率任务消耗',
       reference_id: null,
     })
