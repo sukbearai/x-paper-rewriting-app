@@ -643,6 +643,8 @@ Authorization: Bearer <access_token>
 - 积分结果保留3位小数，截取而不四舍五入（避免JavaScript浮点数精度问题）
 - 积分不足时无法提交任务
 - 任务提交成功后立即扣除积分
+- 如果AI服务返回错误，已扣除的积分对应的交易记录会被标记为失败(is_successful=false)
+- 失败任务的积分不会自动退还，需要管理员手动处理
 
 **cURL 示例**:
 ```bash
@@ -701,6 +703,11 @@ curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
   "timestamp": 1672531200000
 }
 ```
+
+**说明**:
+- 积分会在任务成功提交到AI服务后扣除，并在积分交易记录中标记
+- 如果AI服务返回错误，任务会被标记为失败，积分交易记录也会相应更新为失败状态
+- 任务失败时对应的积分交易记录的`is_successful`字段会被设置为`false`
 
 **错误响应**:
 - **HTTP 401 - 未授权访问**:
@@ -860,6 +867,21 @@ CHEEYUAN服务处理中响应:
 }
 ```
 
+REDUCEAI服务失败响应:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "status": "failed",
+    "progress": 0,
+    "result": null,
+    "cost": 5
+  },
+  "timestamp": 1672531200000
+}
+```
+
 CHEEYUAN服务完成响应:
 ```json
 {
@@ -875,6 +897,26 @@ CHEEYUAN服务完成响应:
   "timestamp": 1672531200000
 }
 ```
+
+CHEEYUAN服务失败响应:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "status": "failed",
+    "progress": 0,
+    "result": null,
+    "created_at": "2025-11-03 14:04:04",
+    "updated_at": "2025-11-03 14:04:16"
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**说明**:
+- 如果任务状态为"failed"，对应的积分交易记录会被标记为失败(is_successful=false)
+- REDUCEAI服务可能直接返回失败状态，CHEEYUAN服务通过deal_status=2判断失败
 
 **错误响应**:
 - **HTTP 401 - 未授权访问**:
@@ -992,5 +1034,6 @@ curl -X POST https://rewriting.congrongtech.cn/ai/points \
 - `cost_per_1000_chars`: 每1000字的积分消耗
 - 积分按实际字数比例计算，结果保留3位小数，截取而不四舍五入
 - 可以在提交任务前调用此接口检查积分是否足够
+- 失败任务的积分不会自动退还，但对应的交易记录会被标记为失败(is_successful=false)
 
 ---

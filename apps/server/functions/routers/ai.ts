@@ -43,15 +43,15 @@ async function getUserPoints(env: DataBaseEnvBindings, userId: string): Promise<
 }
 
 /**
- * 扣除用户积分
+ * 扣除用户积分并记录交易
  */
-async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number): Promise<boolean> {
+async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number, taskId: string, service: string): Promise<{ success: boolean, newBalance?: number }> {
   const supabase = createSupabaseAdminClient(env)
 
   // 先查询当前积分
   const currentPoints = await getUserPoints(env, userId)
   if (currentPoints < points) {
-    return false
+    return { success: false }
   }
 
   // 获取profile_id
@@ -63,7 +63,7 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
 
   if (profileError || !profileData) {
     console.error('[deductUserPoints] 获取用户档案失败:', profileError)
-    return false
+    return { success: false }
   }
 
   // 扣除积分
@@ -78,7 +78,7 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
 
   if (error) {
     console.error('[deductUserPoints] 扣除积分失败:', error)
-    return false
+    return { success: false }
   }
 
   // 记录积分交易明细
@@ -88,9 +88,10 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
       profile_id: profileData.id,
       transaction_type: 'spend',
       amount: -points,
-      balance_after: newBalance, // 使用处理后的新余额
-      description: 'AI降重/降AI率任务消耗',
-      reference_id: null,
+      balance_after: newBalance,
+      description: `AI降重/降AI率任务消耗 - ${service} - 任务ID: ${taskId}`,
+      reference_id: taskId,
+      is_successful: true, // 初始标记为成功，如果后续任务失败会更新
     })
 
   if (transactionError) {
@@ -98,7 +99,41 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
     // 交易记录失败不影响积分扣除操作
   }
 
-  return true
+  return { success: true, newBalance }
+}
+
+/**
+ * 更新任务状态为失败
+ */
+async function markTaskAsFailed(env: DataBaseEnvBindings, userId: string, taskId: string, service: string): Promise<void> {
+  const supabase = createSupabaseAdminClient(env)
+
+  // 获取profile_id
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .single()
+
+  if (profileError || !profileData) {
+    console.error('[markTaskAsFailed] 获取用户档案失败:', profileError)
+    return
+  }
+
+  // 更新交易记录为失败
+  const { error: updateError } = await supabase
+    .from('points_transactions')
+    .update({
+      is_successful: false,
+      description: `AI降重/降AI率任务失败 - ${service} - 任务ID: ${taskId}`,
+    })
+    .eq('profile_id', profileData.id)
+    .eq('reference_id', taskId)
+    .eq('transaction_type', 'spend')
+
+  if (updateError) {
+    console.error('[markTaskAsFailed] 更新交易记录失败:', updateError)
+  }
 }
 
 // 应用认证中间件到所有路由
@@ -123,10 +158,14 @@ ai.use('*', authMiddleware)
  *   "data": {
  *     "taskId": "任务ID",
  *     "service": "reduceai" | "cheeyuan",
- *     "newBalance": 462
+ *     "newBalance": 462,
+ *     "cost": 3.5
  *   },
  *   "timestamp": "2025-01-01T00:00:00.000Z"
  * }
+ *
+ * 注意：积分会在任务成功提交到AI服务后扣除，并在积分交易记录中标记。
+ * 如果AI服务返回错误，任务会被标记为失败，积分交易记录也会相应更新。
  */
 ai.post('/reduce-task', async (c) => {
   try {
@@ -189,6 +228,8 @@ ai.post('/reduce-task', async (c) => {
 
       if (!response.ok) {
         console.error('CHEEYUAN任务提交失败:', response.status, response.statusText)
+        // AI服务请求失败，标记任务为失败
+        await markTaskAsFailed(c.env, userId, 'cheeyuan-request-failed', 'cheeyuan')
         return c.json(createErrorResponse('CHEEYUAN任务提交失败', 500), 500)
       }
 
@@ -199,11 +240,13 @@ ai.post('/reduce-task', async (c) => {
       }
 
       if (cheeyuanResult.code !== 1 || !cheeyuanResult.data) {
+        // AI服务返回错误，标记任务为失败
+        await markTaskAsFailed(c.env, userId, 'cheeyuan-no-data', 'cheeyuan')
         return c.json(createErrorResponse(cheeyuanResult.message || 'CHEEYUAN任务提交失败', 500), 500)
       }
 
       result = {
-        taskId: cheeyuanResult.data.toString(),
+        taskId: cheeyuanResult?.data?.toString(),
         service: 'cheeyuan',
       }
     }
@@ -232,6 +275,8 @@ ai.post('/reduce-task', async (c) => {
 
       if (!response.ok) {
         console.error('REDUCEAI任务提交失败:', response.status, response.statusText)
+        // AI服务请求失败，标记任务为失败
+        await markTaskAsFailed(c.env, userId, 'reduceai-request-failed', 'reduceai')
         return c.json(createErrorResponse('REDUCEAI任务提交失败', 500), 500)
       }
 
@@ -241,6 +286,8 @@ ai.post('/reduce-task', async (c) => {
       }
 
       if (!reduceAiResult.taskId) {
+        // AI服务返回错误，标记任务为失败
+        await markTaskAsFailed(c.env, userId, 'reduceai-no-task-id', 'reduceai')
         return c.json(createErrorResponse('任务提交失败，未获取到任务ID', 500), 500)
       }
 
@@ -252,18 +299,16 @@ ai.post('/reduce-task', async (c) => {
     }
 
     // 只有在AI服务成功返回结果后才扣除用户积分
-    const deductSuccess = await deductUserPoints(c.env, userId, taskCost)
-    if (!deductSuccess) {
+    const deductResult = await deductUserPoints(c.env, userId, taskCost, result.taskId, service)
+    if (!deductResult.success) {
       console.error('[ai-reduce-task] 扣除积分失败，但任务已提交成功')
       // 扣除积分失败不应该影响用户的任务结果，记录日志即可
+      // 但是需要在任务结果查询时标记为失败
     }
-
-    // 查询更新后的积分余额
-    const newBalance = await getUserPoints(c.env, userId)
 
     return c.json(createSuccessResponse({
       ...result,
-      newBalance,
+      newBalance: deductResult.newBalance || await getUserPoints(c.env, userId),
       cost: taskCost,
     }, '任务提交成功'))
   }
@@ -293,10 +338,15 @@ ai.post('/reduce-task', async (c) => {
  *     "status": "completed" | "processing" | "failed",
  *     "progress": 100,
  *     "result": "处理后的文本内容",
- *     "cost": 5
+ *     "cost": 5,
+ *     "queuePosition": 5,
+ *     "created_at": "2025-01-01T00:00:00.000Z",
+ *     "updated_at": "2025-01-01T00:00:00.000Z"
  *   },
  *   "timestamp": "2025-01-01T00:00:00.000Z"
  * }
+ *
+ * 注意：如果任务状态为"failed"，对应的积分交易记录会被标记为失败(is_successful=false)
  */
 ai.post('/result', async (c) => {
   try {
@@ -361,11 +411,19 @@ ai.post('/result', async (c) => {
       }
 
       // 判断处理状态
-      const status = data.deal_status === 1 && data.resulttext ? 'completed' : 'processing'
+      const status: 'completed' | 'processing' | 'failed'
+        = data.deal_status === 1 && data.resulttext
+          ? 'completed'
+          : data.deal_status === 2 ? 'failed' : 'processing'
+
+      // 如果任务失败，更新交易记录
+      if (status === 'failed') {
+        await markTaskAsFailed(c.env, userId, taskId, 'cheeyuan')
+      }
 
       return c.json(createSuccessResponse({
         status,
-        progress: status === 'completed' ? 100 : 0,
+        progress: status === 'completed' ? 100 : (status === 'failed' ? 0 : 0),
         result: status === 'completed' ? data.resulttext : null,
         created_at: data.created_at,
         updated_at: data.updated_at,
@@ -393,6 +451,11 @@ ai.post('/result', async (c) => {
         queuePosition?: number
         cost?: number
         [key: string]: any
+      }
+
+      // 如果任务失败，更新交易记录
+      if (result.status === 'failed') {
+        await markTaskAsFailed(c.env, userId, taskId, 'reduceai')
       }
 
       // 处理可能的直接结果格式
@@ -436,10 +499,13 @@ ai.post('/result', async (c) => {
  *   "message": "查询成功",
  *   "data": {
  *     "points_balance": 450,
- *     "task_cost": 10
+ *     "task_cost": 10,
+ *     "cost_per_1000_chars": 3
  *   },
  *   "timestamp": "2025-01-01T00:00:00.000Z"
  * }
+ *
+ * 说明：task_cost 和 cost_per_1000_chars 表示每1000字消耗的积分数（当前为3积分）
  */
 ai.post('/points', async (c) => {
   try {
