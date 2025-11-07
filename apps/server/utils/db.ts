@@ -4,6 +4,8 @@ export interface DataBaseEnvBindings {
   SUPABASE_URL: string
   SUPABASE_ANON_KEY: string
   SUPABASE_SERVICE_ROLE_KEY: string
+  CHEEYUAN_API_URL: string
+  REDUCEAI_API_URL: string
 }
 
 export function createSupabaseClient(env: DataBaseEnvBindings, access_token?: string) {

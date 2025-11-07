@@ -609,3 +609,388 @@ curl -X POST https://rewriting.congrongtech.cn/user/change-password \
 - 建议客户端在收到成功响应后清除本地存储的登录状态
 
 ---
+
+### 6. 提交降重或降AI率任务
+
+**端点**: `POST /ai/reduce-task`
+
+**描述**: 提交降重或降AI率任务，支持知网和维普平台。需要用户登录认证，按文本长度动态计算积分消耗。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**请求体**:
+```json
+{
+  "text": "待处理的文本内容（最多3000字）",
+  "platform": "zhiwang",
+  "type": "reduce-plagiarism"
+}
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`，通过用户登录接口获取
+- `text` (必需): 待处理的文本内容，最多3000字
+- `platform` (必需): 平台选择，支持 `zhiwang`（知网）和 `weipu`（维普）
+- `type` (必需): 处理类型，支持 `reduce-plagiarism`（降重）和 `reduce-ai-rate`（降AI率）
+
+**积分说明**:
+- 每1000字消耗3积分，按实际字数比例计算
+- 积分消耗计算公式：`(文本字数 ÷ 1000) × 3`
+- 例如：800字文本消耗2.4积分，1200字文本消耗3.6积分
+- 积分结果保留一位小数，四舍五入
+- 积分不足时无法提交任务
+- 任务提交成功后立即扣除积分
+
+**cURL 示例**:
+```bash
+# 知网降重
+curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "text": "需要降重的文本内容",
+    "platform": "zhiwang",
+    "type": "reduce-plagiarism"
+  }'
+
+# 知网降AI率
+curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "text": "需要降AI率的文本内容",
+    "platform": "zhiwang",
+    "type": "reduce-ai-rate"
+  }'
+
+# 维普降重
+curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "text": "需要降重的文本内容",
+    "platform": "weipu",
+    "type": "reduce-plagiarism"
+  }'
+
+# 维普降AI率
+curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "text": "需要降AI率的文本内容",
+    "platform": "weipu",
+    "type": "reduce-ai-rate"
+  }'
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "任务提交成功",
+  "data": {
+    "taskId": "onlyjc_98631379_1758017276712",
+    "service": "reduceai",
+    "newBalance": 462,
+    "cost": 3.6
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 400 - 请求参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "缺少文本内容参数",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "文本内容不能超过3000字",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "平台参数错误，必须为zhiwang或weipu",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 400 - 积分不足**:
+  ```json
+  {
+    "code": 400,
+    "message": "积分不足，当前积分：2，需要积分：3.6",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "CHEEYUAN任务提交失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+---
+
+### 7. 查询任务结果
+
+**端点**: `POST /ai/result`
+
+**描述**: 查询降重或降AI率任务的处理结果。需要用户登录认证。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**请求体**:
+```json
+{
+  "taskId": "onlyjc_98631379_1758017276712",
+  "service": "reduceai"
+}
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`，通过用户登录接口获取
+- `taskId` (必需): 任务ID，从提交任务接口返回
+- `service` (必需): 服务提供商，支持 `reduceai` 和 `cheeyuan`
+
+**cURL 示例**:
+```bash
+# 查询REDUCEAI服务任务结果
+curl -X POST https://rewriting.congrongtech.cn/ai/result \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "taskId": "onlyjc_98631379_1758017276712",
+    "service": "reduceai"
+  }'
+
+# 查询CHEEYUAN服务任务结果
+curl -X POST https://rewriting.congrongtech.cn/ai/result \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "taskId": "123456",
+    "service": "cheeyuan"
+  }'
+```
+
+**成功响应 (HTTP 200)**:
+
+REDUCEAI服务处理中响应:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "status": "processing",
+    "progress": 39,
+    "result": null,
+    "queuePosition": 0,
+    "cost": 5
+  },
+  "timestamp": 1672531200000
+}
+```
+
+REDUCEAI服务完成响应:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "status": "completed",
+    "progress": 100,
+    "result": "处理后的文本内容",
+    "cost": 5
+  },
+  "timestamp": 1672531200000
+}
+```
+
+CHEEYUAN服务处理中响应:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "status": "processing",
+    "progress": 0,
+    "result": null,
+    "created_at": "2025-11-03 14:04:04",
+    "updated_at": "2025-11-03 14:04:04"
+  },
+  "timestamp": 1672531200000
+}
+```
+
+CHEEYUAN服务完成响应:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "status": "completed",
+    "progress": 100,
+    "result": "处理后的文本内容",
+    "created_at": "2025-11-03 14:04:04",
+    "updated_at": "2025-11-03 14:04:16"
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 400 - 请求参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "缺少任务ID参数",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "服务参数错误，必须为reduceai或cheeyuan",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "CHEEYUAN结果查询失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+---
+
+### 8. 查询用户积分
+
+**端点**: `POST /ai/points`
+
+**描述**: 查询当前用户的积分余额和积分计费规则。需要用户登录认证。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`，通过用户登录接口获取
+
+**cURL 示例**:
+```bash
+curl -X POST https://rewriting.congrongtech.cn/ai/points \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "查询成功",
+  "data": {
+    "points_balance": 450,
+    "task_cost": 3,
+    "cost_per_1000_chars": 3
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "服务器内部错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- `points_balance`: 用户当前积分余额
+- `task_cost`: 每1000字消耗的积分数（固定3积分）
+- `cost_per_1000_chars`: 每1000字的积分消耗
+- 积分按实际字数比例计算，结果保留一位小数
+- 可以在提交任务前调用此接口检查积分是否足够
+
+---

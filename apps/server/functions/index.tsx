@@ -2,7 +2,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 // import { ipRestriction } from 'hono/ip-restriction';
 import { externalTokenMiddleware } from './middleware/external-tokens'
-import { otp, sms, testRpc, user } from './routers/index'
+import { ai, otp, sms, testRpc, user } from './routers/index'
 
 const app = new Hono().basePath('/')
 
@@ -14,6 +14,7 @@ app.route('/user', user)
 app.route('/sms', sms)
 app.route('/otp', otp)
 app.route('/test-rpc', testRpc)
+app.route('/ai', ai)
 
 // IP restriction middleware (optional)
 // app.use(
