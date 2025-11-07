@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { authMiddleware } from '../middleware/auth'
+import type { AuthVariables } from '../middleware/auth'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseAdminClient, createSupabaseClient } from '@/utils/db'
@@ -492,26 +494,20 @@ user.post('/register', async (c) => {
   }
 })
 
-// 用户退出登录
-user.post('/logout', async (c) => {
+// 用户退出登录 - 使用中间件方式
+user.post('/logout', authMiddleware, async (c) => {
   try {
-    // 从请求头获取token
-    const accessToken = c.req.header('Authorization')?.replace('Bearer ', '')
+    // 从中间件获取的用户信息
+    const userId = c.get('userId')
+    const username = c.get('username')
+
+    console.log(`[logout] 用户 ${username}(${userId}) 退出登录`)
+
+    // 从请求头获取refresh_token
     const refreshToken = c.req.header('refresh_token')
 
-    // 至少需要提供access_token
-    if (!accessToken) {
-      return c.json(createErrorResponse('缺少访问令牌', 400), 400)
-    }
-
-    const supabase = createSupabaseClient(c.env, accessToken)
-
-    // 验证token有效性并获取用户信息
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return c.json(createErrorResponse('访问令牌无效', 401), 401)
-    }
+    // 创建supabase客户端来处理退出
+    const supabase = createSupabaseClient(c.env)
 
     // 执行退出登录
     const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
@@ -524,8 +520,7 @@ user.post('/logout', async (c) => {
     // 如果提供了refresh_token，尝试撤销它
     if (refreshToken) {
       try {
-        // 创建新的客户端实例用于撤销refresh token
-        const adminSupabase = createSupabaseClient(c.env)
+        const adminSupabase = createSupabaseAdminClient(c.env)
         await adminSupabase.auth.admin.signOut(refreshToken)
       }
       catch (revokeError) {
@@ -542,15 +537,15 @@ user.post('/logout', async (c) => {
   }
 })
 
-// 用户修改密码
-user.post('/change-password', async (c) => {
+// 用户修改密码 - 使用中间件方式
+user.post('/change-password', authMiddleware, async (c) => {
   try {
-    // 从请求头获取access_token
-    const accessToken = c.req.header('Authorization')?.replace('Bearer ', '')
+    // 从中间件获取的用户信息
+    const userId = c.get('userId')
+    const username = c.get('username')
+    const email = c.get('email')
 
-    if (!accessToken) {
-      return c.json(createErrorResponse('缺少访问令牌', 400), 400)
-    }
+    console.log(`[change-password] 用户 ${username}(${userId}) 修改密码`)
 
     let payload: ChangePasswordRequestBody
     try {
@@ -567,29 +562,11 @@ user.post('/change-password', async (c) => {
     }
 
     const { current_password, new_password } = parsed.data
-    const supabase = createSupabaseClient(c.env, accessToken)
-
-    // 验证token有效性并获取用户信息
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return c.json(createErrorResponse('访问令牌无效', 401), 401)
-    }
-
-    // 查询用户邮箱用于密码验证
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profileError || !profile) {
-      return c.json(createErrorResponse('用户档案不存在', 404), 404)
-    }
+    const supabase = createSupabaseClient(c.env)
 
     // 验证当前密码
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: profile.email,
+      email,
       password: current_password,
     })
 
