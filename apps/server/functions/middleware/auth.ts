@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import { createErrorResponse } from '@/utils/response'
-import { createSupabaseClient } from '@/utils/db'
+import { createSupabaseAdminClient, createSupabaseClient } from '@/utils/db'
 import type { DataBaseEnvBindings } from '@/utils/db'
 
 // 用户认证后的上下文变量
@@ -42,17 +42,28 @@ export const authMiddleware = createMiddleware<{
       return c.json(createErrorResponse('访问令牌无效', 401), 401)
     }
 
-    // 检查用户是否被禁用（如果用户表有status字段的话）
-    // 这里可以根据需要添加额外的用户状态检查
+    // 从profiles表获取用户业务信息
+    const adminSupabase = createSupabaseAdminClient(c.env)
+    const { data: profile, error: profileError } = await adminSupabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.error('[auth-middleware] Profile query failed:', profileError)
+      return c.json(createErrorResponse('用户档案不存在', 401), 401)
+    }
 
     // 将用户信息设置到上下文中
     c.set('userId', user.id)
-    c.set('username', user.user_metadata?.username || user.email?.split('@')[0] || '')
+    c.set('username', profile.username || user.email?.split('@')[0] || '')
     c.set('email', user.email || '')
-    c.set('role', user.user_metadata?.role || 'user')
+    c.set('role', profile.role || 'user')
 
     await next()
-  } catch (err) {
+  }
+  catch (err) {
     console.error('[auth-middleware] Authentication error:', err)
     return c.json(createErrorResponse('认证失败', 401), 401)
   }
@@ -92,14 +103,30 @@ export const optionalAuthMiddleware = createMiddleware<{
       return
     }
 
+    // 从profiles表获取用户业务信息
+    const adminSupabase = createSupabaseAdminClient(c.env)
+    const { data: profile, error: profileError } = await adminSupabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.warn('[optional-auth-middleware] Profile query failed:', profileError)
+      // 档案不存在但继续执行（可选认证）
+      await next()
+      return
+    }
+
     // 设置用户信息
     c.set('userId', user.id)
-    c.set('username', user.user_metadata?.username || user.email?.split('@')[0] || '')
+    c.set('username', profile.username || user.email?.split('@')[0] || '')
     c.set('email', user.email || '')
-    c.set('role', user.user_metadata?.role || 'user')
+    c.set('role', profile.role || 'user')
 
     await next()
-  } catch (err) {
+  }
+  catch (err) {
     console.warn('[optional-auth-middleware] Authentication error:', err)
     // 认证出错但继续执行（可选认证）
     await next()
