@@ -1,30 +1,27 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Discount, User } from '@element-plus/icons-vue'
+import { Discount, HomeFilled, SwitchButton, User, UserFilled, WalletFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuthStore } from '@/store/auth'
 
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const activeMenu = ref('0')
-const isLoggedIn = ref(true)
-const menuItems = [
-  {
-    icon: 'HomeFilled',
-    label: '工具',
-    clickHandler: () => { },
+const activeMenu = ref('home')
+
+const isLoggedIn = computed(() => authStore.isAuthenticated.value)
+const userName = computed(() => authStore.displayName.value)
+const userPoints = computed(() => authStore.points.value ?? authStore.user.value?.points_balance ?? 0)
+
+watch(
+  isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn)
+      authStore.fetchPoints()
   },
-  {
-    icon: 'WalletFilled',
-    label: '代理中心',
-    clickHandler: () => { },
-  },
-  {
-    icon: 'UserFilled',
-    label: '登录',
-    clickHandler: goToLogin,
-  },
-]
+  { immediate: true },
+)
 
 // 监听路由变化更新菜单激活状态
 watch(
@@ -33,16 +30,22 @@ watch(
     switch (newPath) {
       case '/':
       case '/home':
-        activeMenu.value = '0'
+        activeMenu.value = 'home'
         break
       case '/proxy':
-        activeMenu.value = '1'
+        activeMenu.value = 'proxy'
         break
       case '/login':
-        activeMenu.value = '2'
+        activeMenu.value = 'login'
+        break
+      case '/userCenter':
+        activeMenu.value = 'user:center'
+        break
+      case '/balanceRecharge':
+        activeMenu.value = 'user:recharge'
         break
       default:
-        activeMenu.value = '0'
+        activeMenu.value = 'home'
     }
   },
   { immediate: true },
@@ -52,14 +55,25 @@ watch(
 function handleMenuSelect(index: string) {
   activeMenu.value = index
   switch (index) {
-    case '0':
+    case 'home':
       router.push('/')
       break
-    case '1':
+    case 'proxy':
       router.push('/proxy')
       break
-    case '2':
+    case 'login':
       router.push('/login')
+      break
+    case 'user:center':
+      goToUserCenter()
+      break
+    case 'user:recharge':
+      goToRecharge()
+      break
+    case 'user:logout':
+      handleLogout()
+      break
+    default:
       break
   }
 }
@@ -69,6 +83,7 @@ function goToLogin() {
   activeMenu.value = '2'
   router.push('/login')
 }
+
 function handleLogout() {
   ElMessageBox.confirm(
     '确认要退出登录吗？',
@@ -80,8 +95,7 @@ function handleLogout() {
     },
   )
     .then(() => {
-      // 执行退出登录逻辑
-      isLoggedIn.value = false
+      authStore.logout()
       router.push('/login')
       ElMessage({
         type: 'success',
@@ -95,6 +109,7 @@ function handleLogout() {
 function goToUserCenter() {
   router.push('/userCenter')
 }
+
 function goToRecharge() {
   router.push('/balanceRecharge')
 }
@@ -112,48 +127,50 @@ function goToRecharge() {
         星辰写作
       </h1>
       <div class="flex-grow" />
-      <template v-for="(item, index) in menuItems" :key="index">
-        <!-- 非登录菜单项正常显示 -->
-        <el-menu-item
-          v-if="index !== 2 || !isLoggedIn"
-          :index="index.toString()"
-          @click="item.clickHandler"
-        >
-          <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === index.toString() }">
-            <component :is="item.icon" />
+      <el-menu-item index="home">
+        <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === 'home' }">
+          <HomeFilled />
+        </el-icon>
+        工具
+      </el-menu-item>
+
+      <el-menu-item index="proxy">
+        <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === 'proxy' }">
+          <WalletFilled />
+        </el-icon>
+        代理中心
+      </el-menu-item>
+
+      <el-menu-item v-if="!isLoggedIn" index="login">
+        <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === 'login' }">
+          <UserFilled />
+        </el-icon>
+        登录
+      </el-menu-item>
+
+      <el-sub-menu v-else index="user" popper-class="user-dropdown">
+        <template #title>
+          <el-icon class="menu-icon">
+            <User />
           </el-icon>
-          {{ item.label }}
+          <span class="ml-1">{{ userName || '用户' }}</span>
+        </template>
+
+        <el-menu-item index="user:center">
+          <el-icon><User /></el-icon>
+          个人中心
         </el-menu-item>
 
-        <!-- 登录后显示用户下拉菜单 -->
-        <el-sub-menu
-          v-else
-          :index="index.toString()"
-          popper-class="user-dropdown"
-        >
-          <template #title>
-            <el-icon class="menu-icon">
-              <User />
-            </el-icon>
-            <!-- {{ userPhone }} -->
-          </template>
+        <el-menu-item index="user:recharge">
+          <el-icon><Discount /></el-icon>
+          积分：{{ userPoints }}
+        </el-menu-item>
 
-          <el-menu-item @click="goToUserCenter">
-            <el-icon><User /></el-icon>
-            个人中心
-          </el-menu-item>
-
-          <el-menu-item @click="goToRecharge">
-            <el-icon><Discount /></el-icon>
-            余额：{{ 1000 }}元
-          </el-menu-item>
-
-          <el-menu-item @click="handleLogout">
-            <el-icon><SwitchButton /></el-icon>
-            退出登录
-          </el-menu-item>
-        </el-sub-menu>
-      </template>
+        <el-menu-item index="user:logout">
+          <el-icon><SwitchButton /></el-icon>
+          退出登录
+        </el-menu-item>
+      </el-sub-menu>
     </el-menu>
 
     <!-- 内容区域 -->

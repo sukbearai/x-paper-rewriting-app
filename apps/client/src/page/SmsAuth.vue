@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { login, register, sendSmsCode } from '@/api/services'
-import type { LoginParams, RegisterParams, RegisterForm } from '@/api/interface'
+import { useRequest } from 'vue-hooks-plus'
+import { sendSmsCode } from '@/api/services'
+import { useAuthStore } from '@/store/auth'
+import type { LoginOtpForm, LoginWithPasswordParams, RegisterForm, RegisterParams } from '@/api/interface'
+
+const authStore = useAuthStore()
+const router = useRouter()
 
 const activeName = ref<'login' | 'register'>('login')
-const loginRef = ref<FormInstance>()
+const loginMode = ref<'otp' | 'password'>('otp')
+const loginOtpRef = ref<FormInstance>()
+const loginPasswordRef = ref<FormInstance>()
 const registerRef = ref<FormInstance>()
 const cooldown = ref(0)
 const showAuthModal = ref(false)
 
-const loginForm = reactive<LoginParams>({ phone: '', password: '' })
+const loginOtpForm = reactive<LoginOtpForm>({ phone: '', code: '' })
+const loginPasswordForm = reactive<LoginWithPasswordParams>({ username: '', password: '' })
 const registerForm = reactive<RegisterForm>({
+  username: '',
+  email: '',
   phone: '',
   password: '',
   confirmPassword: '',
@@ -20,10 +31,23 @@ const registerForm = reactive<RegisterForm>({
   invite: '',
 })
 
-const rules = reactive<FormRules>({
+const phonePattern = /^1[3-9]\d{9}$/
+const emailPattern = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
+
+const loginOtpRules = reactive<FormRules>({
   phone: [
     { required: true, message: '请输入正确的中国大陆手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式错误', trigger: 'blur' },
+    { pattern: phonePattern, message: '手机号格式错误', trigger: 'blur' },
+  ],
+  code: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { pattern: /^\d{4,6}$/, message: '验证码为 4-6 位数字', trigger: 'blur' },
+  ],
+})
+
+const loginPasswordRules = reactive<FormRules>({
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -32,10 +56,18 @@ const rules = reactive<FormRules>({
 })
 
 const registerRules = reactive<FormRules>({
-  // phone: [
-  //   { required: true, message: '请输入正确的中国大陆手机号', trigger: 'blur' },
-  //   { pattern: /^1[3-9]\d{9}$/, message: '手机号格式错误', trigger: 'blur' },
-  // ],
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '用户名长度需在 3-20 个字符', trigger: 'blur' },
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { pattern: emailPattern, message: '邮箱格式不正确', trigger: 'blur' },
+  ],
+  phone: [
+    { required: true, message: '请输入正确的中国大陆手机号', trigger: 'blur' },
+    { pattern: phonePattern, message: '手机号格式错误', trigger: 'blur' },
+  ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能小于6位', trigger: 'blur' },
@@ -43,7 +75,7 @@ const registerRules = reactive<FormRules>({
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
     {
-      validator: (rule, value, callback) => {
+      validator: (_rule, value, callback) => {
         if (value !== registerForm.password) {
           callback(new Error('两次输入的密码不一致'))
         }
@@ -60,72 +92,195 @@ const registerRules = reactive<FormRules>({
   ],
 })
 
+const { runAsync: loginOtpAsync, loading: loginOtpLoading } = useRequest(authStore.loginByOtp, {
+  manual: true,
+  onSuccess: () => {
+    ElMessage.success('登录成功')
+    showAuthModal.value = false
+    router.push('/')
+  },
+})
+
+const { runAsync: loginPasswordAsync, loading: loginPasswordLoading } = useRequest(authStore.loginByPassword, {
+  manual: true,
+  onSuccess: () => {
+    ElMessage.success('登录成功')
+    showAuthModal.value = false
+    router.push('/')
+  },
+})
+
+const { runAsync: registerAsync, loading: registerLoading } = useRequest(authStore.registerAccount, {
+  manual: true,
+  onSuccess: () => {
+    ElMessage.success('注册成功，请登录')
+    activeName.value = 'login'
+    loginOtpForm.phone = registerForm.phone
+    loginOtpForm.code = ''
+    loginMode.value = 'otp'
+    showAuthModal.value = true
+  },
+})
+
+const { runAsync: sendSmsAsync, loading: smsLoading } = useRequest(sendSmsCode, {
+  manual: true,
+  onSuccess: () => {
+    ElMessage.success('验证码已发送')
+    startCooldown()
+  },
+})
+
+const loginButtonLoading = computed(() => (loginMode.value === 'otp' ? loginOtpLoading.value : loginPasswordLoading.value))
+
 let timer: number | null = null
+
+function clearCooldownTimer() {
+  if (timer) {
+    window.clearInterval(timer)
+    timer = null
+  }
+}
+
 function startCooldown() {
   cooldown.value = 60
-  if (timer) {
-    clearInterval(timer)
-  }
-
+  clearCooldownTimer()
   timer = window.setInterval(() => {
-    if (--cooldown.value <= 0)
-      clearInterval(timer!)
+    cooldown.value -= 1
+    if (cooldown.value <= 0) {
+      clearCooldownTimer()
+      cooldown.value = 0
+    }
   }, 1000)
 }
 
 async function sendSms(type: 'login' | 'register') {
-  const ref = type === 'login' ? loginRef : registerRef
-  if (!ref.value)
+  if (type === 'login' && loginMode.value !== 'otp') {
+    ElMessage.warning('请切换到短信验证码登录')
     return
+  }
+
+  const formRef = type === 'login' ? loginOtpRef.value : registerRef.value
+  const phone = type === 'login' ? loginOtpForm.phone : registerForm.phone
+  if (!formRef)
+    return
+
   try {
-    console.log('发送验证码', registerForm)
-
-    await ref.value.validateField('phone')
-    // TODO: 调后端发送短信接口
-    sendSmsCode({ phone: `+86${registerForm.phone}` }).then((res) => {
-      console.log(res)
-
-      ElMessage.success('验证码已发送')
-      startCooldown()
-    })
+    await formRef.validateField('phone')
   }
   catch {
     ElMessage.warning('请先修正手机号')
+    return
+  }
+
+  try {
+    const intlPhone = phone.startsWith('+') ? phone : `+86${phone}`
+    await sendSmsAsync({ phone: intlPhone, purpose: type === 'login' ? 'login' : 'signup' })
+  }
+  catch {
+    // 错误已在请求封装中统一提示
   }
 }
 
 async function submit(type: 'login' | 'register') {
-  const ref = type === 'login' ? loginRef : registerRef
-  if (!ref.value)
-    return
-  try {
-    await ref.value.validate()
-    if (type === 'login') { // 登录
-      await login(loginForm)
-    }
-    else { // 注册
-      const payload: RegisterParams = {
-        email: '',
-        username: '',
-        phone: registerForm.phone,
-        password: registerForm.password,
-        otp: registerForm.code,
-        inviteCode: registerForm.invite,
+  if (type === 'login') {
+    if (loginMode.value === 'otp') {
+      if (!loginOtpRef.value)
+        return
+      try {
+        await loginOtpRef.value.validate()
       }
-      await register(payload)
+      catch {
+        ElMessage.warning('请完整填写表单')
+        return
+      }
+
+      try {
+        const intlPhone = loginOtpForm.phone.startsWith('+') ? loginOtpForm.phone : `+86${loginOtpForm.phone}`
+        await loginOtpAsync({
+          phone: intlPhone,
+          verification_code: loginOtpForm.code,
+        })
+      }
+      catch {
+        // 错误已在请求封装中统一提示
+      }
     }
-    ElMessage.success(type === 'login' ? '登录成功' : '注册成功')
-    showAuthModal.value = false
-    // TODO: 调用真实登录/注册接口
+    else {
+      if (!loginPasswordRef.value)
+        return
+      try {
+        await loginPasswordRef.value.validate()
+      }
+      catch {
+        ElMessage.warning('请完整填写表单')
+        return
+      }
+
+      try {
+        await loginPasswordAsync({
+          username: loginPasswordForm.username,
+          password: loginPasswordForm.password,
+        })
+      }
+      catch {
+        // 错误已在请求封装中统一提示
+      }
+    }
+    return
+  }
+
+  if (!registerRef.value)
+    return
+
+  try {
+    await registerRef.value.validate()
   }
   catch {
     ElMessage.warning('请完整填写表单')
+    return
+  }
+
+  const payload: RegisterParams = {
+    username: registerForm.username,
+    email: registerForm.email,
+    phone: registerForm.phone ? `+86${registerForm.phone}` : undefined,
+    password: registerForm.password,
+    verification_code: registerForm.code || undefined,
+    invite_code: registerForm.invite || undefined,
+  }
+
+  try {
+    await registerAsync(payload)
+  }
+  catch {
+    // 错误已在请求封装中统一提示
   }
 }
 
 function openAuthModal() {
   showAuthModal.value = true
 }
+
+onMounted(() => {
+  if (authStore.isAuthenticated.value)
+    router.replace('/')
+  else
+    showAuthModal.value = true
+})
+
+watch(
+  () => authStore.isAuthenticated.value,
+  (loggedIn) => {
+    if (loggedIn) {
+      showAuthModal.value = false
+      router.replace('/')
+    }
+  },
+)
+
+onBeforeUnmount(() => {
+  clearCooldownTimer()
+})
 </script>
 
 <template>
@@ -159,28 +314,72 @@ function openAuthModal() {
       <el-tabs v-model="activeName" class="auth-tabs">
         <!-- 登录 -->
         <el-tab-pane label="登录" name="login">
-          <el-form ref="loginRef" :model="loginForm" :rules="rules" label-width="80px">
+          <div class="login-mode-toggle">
+            <el-radio-group v-model="loginMode" size="small">
+              <el-radio-button label="otp">
+                验证码登录
+              </el-radio-button>
+              <el-radio-button label="password">
+                密码登录
+              </el-radio-button>
+            </el-radio-group>
+          </div>
+
+          <el-form
+            v-if="loginMode === 'otp'"
+            ref="loginOtpRef"
+            :model="loginOtpForm"
+            :rules="loginOtpRules"
+            label-width="80px"
+          >
             <el-form-item label="手机号" prop="phone">
               <el-input
-                v-model="loginForm.phone"
+                v-model="loginOtpForm.phone"
                 placeholder="请输入11位手机号"
                 maxlength="11"
                 pattern="[0-9]*"
                 inputmode="numeric"
               >
-                <!-- 固定前缀 -->
                 <template #prepend>
                   +86
                 </template>
               </el-input>
             </el-form-item>
 
-            <el-form-item label="密码" prop="password">
-              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password />
+            <el-form-item label="验证码" prop="code">
+              <el-input v-model="loginOtpForm.code" placeholder="请输入短信验证码" maxlength="6">
+                <template #append>
+                  <el-button :disabled="cooldown > 0 || smsLoading" :loading="smsLoading" @click="sendSms('login')">
+                    {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
+                  </el-button>
+                </template>
+              </el-input>
             </el-form-item>
 
             <el-form-item>
-              <el-button type="primary" style="width: 100%" @click="submit('login')">
+              <el-button type="primary" style="width: 100%" :loading="loginButtonLoading" @click="submit('login')">
+                登录
+              </el-button>
+            </el-form-item>
+          </el-form>
+
+          <el-form
+            v-else
+            ref="loginPasswordRef"
+            :model="loginPasswordForm"
+            :rules="loginPasswordRules"
+            label-width="80px"
+          >
+            <el-form-item label="用户名" prop="username">
+              <el-input v-model="loginPasswordForm.username" placeholder="请输入用户名" />
+            </el-form-item>
+
+            <el-form-item label="密码" prop="password">
+              <el-input v-model="loginPasswordForm.password" type="password" placeholder="请输入密码" show-password />
+            </el-form-item>
+
+            <el-form-item>
+              <el-button type="primary" style="width: 100%" :loading="loginButtonLoading" @click="submit('login')">
                 登录
               </el-button>
             </el-form-item>
@@ -190,6 +389,14 @@ function openAuthModal() {
         <!-- 注册 -->
         <el-tab-pane label="注册" name="register">
           <el-form ref="registerRef" :model="registerForm" :rules="registerRules" label-width="80px">
+            <el-form-item label="用户名" prop="username">
+              <el-input v-model="registerForm.username" placeholder="请输入用户名" maxlength="20" />
+            </el-form-item>
+
+            <el-form-item label="邮箱" prop="email">
+              <el-input v-model="registerForm.email" placeholder="请输入邮箱" />
+            </el-form-item>
+
             <el-form-item label="手机号" prop="phone">
               <el-input
                 v-model="registerForm.phone"
@@ -216,7 +423,7 @@ function openAuthModal() {
             <el-form-item label="验证码" prop="code">
               <el-input v-model="registerForm.code" placeholder="请输入短信验证码" maxlength="6">
                 <template #append>
-                  <el-button :disabled="cooldown > 0" @click="sendSms('register')">
+                  <el-button :disabled="cooldown > 0 || smsLoading" :loading="smsLoading" @click="sendSms('register')">
                     {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
                   </el-button>
                 </template>
@@ -228,7 +435,7 @@ function openAuthModal() {
             </el-form-item>
 
             <el-form-item>
-              <el-button type="success" style="width: 100%" @click="submit('register')">
+              <el-button type="success" style="width: 100%" :loading="registerLoading" @click="submit('register')">
                 注册
               </el-button>
             </el-form-item>

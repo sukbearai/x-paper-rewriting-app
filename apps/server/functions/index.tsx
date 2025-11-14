@@ -1,10 +1,18 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 // import { ipRestriction } from 'hono/ip-restriction';
 import { externalTokenMiddleware } from './middleware/external-tokens'
 import { ai, otp, sms, testRpc, user } from './routers/index'
 
 const app = new Hono().basePath('/')
+
+// CORS配置
+app.use('*', cors({
+  origin: '*', // 允许所有来源，生产环境应该指定具体域名
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}))
 
 // External token bootstrap
 app.use('*', externalTokenMiddleware)

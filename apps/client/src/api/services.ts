@@ -1,25 +1,88 @@
 import { request } from '@/api/axios'
-import type { LoginParams, RegisterParams } from '@/api/interface'
+import type {
+  ChangePasswordParams,
+  LoginResponse,
+  LoginWithOtpParams,
+  LoginWithPasswordParams,
+  PointsResponse,
+  RegisterParams,
+  RegisterResponse,
+  SmsCodeParams,
+  SubmitTaskParams,
+  SubmitTaskResponse,
+  TaskResultData,
+  TaskResultParams,
+} from '@/api/interface'
 
-export function login(data: LoginParams) {
-  return request('/api/login', {
+export function sendSmsCode(data: SmsCodeParams) {
+  return request<null>('/otp', {
     method: 'post',
+    headers: { 'Content-Type': 'application/json' },
     data,
   })
 }
 
-export function register(data: RegisterParams) {
-  return request('/api/register', {
+export function registerUser(data: RegisterParams) {
+  return request<RegisterResponse>('/user/register', {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
     data,
   })
 }
 
-export function sendSmsCode(data: { phone: string }) {
-  return request('/otp', {
+export function loginWithPassword(data: LoginWithPasswordParams) {
+  return request<LoginResponse>('/user/login', {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
     data,
+  })
+}
+
+export function loginWithOtp(data: LoginWithOtpParams) {
+  return request<LoginResponse>('/user/login', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}
+
+export function logout(refreshToken?: string) {
+  return request<null>('/user/logout', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
+    },
+  })
+}
+
+export function changePassword(data: ChangePasswordParams) {
+  return request<null>('/user/change-password', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}
+
+export function submitReduceTask(data: SubmitTaskParams) {
+  return request<SubmitTaskResponse>('/ai/reduce-task', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}
+
+export function queryTaskResult(data: TaskResultParams) {
+  return request<TaskResultData>('/ai/result', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}
+
+export function queryPoints() {
+  return request<PointsResponse>('/ai/points', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
   })
 }

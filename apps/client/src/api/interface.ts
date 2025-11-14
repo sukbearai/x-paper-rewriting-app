@@ -1,45 +1,133 @@
-// 登录表单接口
-export interface LoginForm {
+export interface SmsCodeParams {
   phone: string
+  purpose?: 'signup' | 'login'
+}
+
+export interface SmsCodeResponse {
+  code: number
+  message: string
+  data: null
+  timestamp: number
+}
+
+export interface RegisterParams {
+  username: string
+  email: string
+  password: string
+  phone?: string
+  verification_code?: string
+  invite_code?: string
+}
+
+export interface RegisterResponse {
+  id: number
+  username: string
+  email: string
+  phone?: string
+  invite_code?: string
+  role: string
+  points_balance: number
+  created_at: string
+  invited_by?: string
+}
+
+export interface LoginWithPasswordParams {
+  username: string
   password: string
 }
 
-// 注册表单接口
+export interface LoginWithOtpParams {
+  phone: string
+  verification_code: string
+}
+
+export type LoginParams = LoginWithPasswordParams | LoginWithOtpParams
+
+export interface SessionInfo {
+  access_token: string
+  refresh_token: string
+  expires_at: number
+}
+
+export interface LoginUser {
+  id: string
+  username: string
+  email: string
+  phone?: string
+  role: string
+  points_balance: number
+  invite_code?: string
+  created_at: string
+}
+
+export interface LoginResponse {
+  user: LoginUser
+  session: SessionInfo
+}
+
+export interface LogoutResponse {
+  success: boolean
+}
+
+export interface ChangePasswordParams {
+  current_password: string
+  new_password: string
+}
+
+export interface SubmitTaskParams {
+  text: string
+  platform: 'zhiwang' | 'weipu'
+  type: 'reduce-plagiarism' | 'reduce-ai-rate'
+}
+
+export interface SubmitTaskResponse {
+  taskId: string
+  service: 'reduceai' | 'cheeyuan'
+  newBalance: number
+  cost: number
+}
+
+export interface TaskResultParams {
+  taskId: string
+  service: 'reduceai' | 'cheeyuan'
+}
+
+export interface TaskResultCommon {
+  status: 'processing' | 'completed' | 'failed'
+  progress: number
+  result: string | null
+  cost?: number
+}
+
+export interface ReduceAiResult extends TaskResultCommon {
+  queuePosition?: number
+}
+
+export interface CheeYuanResult extends TaskResultCommon {
+  created_at?: string
+  updated_at?: string
+}
+
+export type TaskResultData = ReduceAiResult | CheeYuanResult
+
+export interface PointsResponse {
+  points_balance: number
+  task_cost: number
+  cost_per_1000_chars: number
+}
+
+// 表单数据
+export interface LoginOtpForm {
+  phone: string
+  code: string
+}
+
 export interface RegisterForm {
+  username: string
+  email: string
   phone: string
   password: string
   confirmPassword: string
   code: string
   invite?: string
-}
-
-// 登录请求参数
-export interface LoginParams {
-  phone: string
-  password: string
-}
-// 注册请求参数
-export interface RegisterParams {
-  email: string
-  password: string
-  username: string
-  phone: string
-  otp: string
-  inviteCode?: string
-}
-
-// 登录响应数据
-export interface LoginResponse {
-  token: string
-  userInfo: {
-    id: number
-    phone: string
-    nickname: string
-  }
-}
-
-// 注册响应数据
-export interface RegisterResponse {
-  success: boolean
-  message: string
 }
