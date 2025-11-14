@@ -7,9 +7,9 @@ import { ai, otp, sms, testRpc, user } from './routers/index'
 
 const app = new Hono().basePath('/')
 
-// CORS配置
 app.use('*', cors({
-  origin: '*', // 允许所有来源，生产环境应该指定具体域名
+  origin: origin => origin, // 回显请求头里的 Origin
+  credentials: true, // 允许携带凭证
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
