@@ -370,7 +370,7 @@ onBeforeUnmount(() => {
           <div class="result-area">
             <!-- 处理状态显示 -->
             <div v-if="isProcessing" class="processing-status">
-              <el-progress :percentage="processingProgress" :status="processingStatus === 'failed' ? 'exception' : undefined" />
+              <!-- <el-progress :percentage="processingProgress" :status="processingStatus === 'failed' ? 'exception' : undefined" /> -->
               <p class="text-center text-sm text-gray-500 mt-2">
                 {{ processingStatus === 'processing' ? '正在处理中，请稍候...'
                   : processingStatus === 'failed' ? '任务处理失败' : '处理完成' }}
