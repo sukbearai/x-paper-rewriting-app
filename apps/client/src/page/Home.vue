@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -23,23 +23,30 @@ const processingProgress = ref(0)
 const selectedTool = ref(0)
 const aiTools = [
   {
-    name: '同时降AI率和降重(全平台版)',
+    name: '降AI率（知网版）',
     price: '3.00积分/千字',
-    tooltip: '1、该功能可大幅度降低句子的AIGC率和降重，全平台一次过；2、已处理近万篇，实测95%概率能直接降到15%以下，90%概率能降到10%以下；3、没有其余两个模型语句通顺',
-    type: 'reduce-plagiarism' as const,
-    platform: 'zhiwang' as const,
-  },
-  {
-    name: '仅降AI率(进阶版)',
-    price: '3.00积分/千字',
-    tooltip: '1、该功能仅大幅度降低句子的AIGC率，不支持降重，全平台一次过；2、不会提高文本重复率；3、比【同时降AI率和降重(全平台)】语句更通顺；4.已处理近万篇，实测95%概率能直接降到15%以下，90%概率能降到10%以下',
+    tooltip: '1、专注降低文本AIGC率，不做降重；2、适配知网检测；3、语句自然通顺，适合审稿前精修；4、实测可将AIGC率稳定降至15%以下',
     type: 'reduce-ai-rate' as const,
     platform: 'zhiwang' as const,
   },
   {
-    name: '仅降重(全平台版)',
+    name: '降AI率（维普版）',
     price: '3.00积分/千字',
-    tooltip: '1、该功能仅大幅度降低句子的重复率，不支持降AIGC，全平台一次过；2、不会提高文本AIGC率；3、比【同时降AI率和降重】降重效果更好；4.已处理近万篇，实测95%概率能直接降到15%以下，90%概率能降到10%以下',
+    tooltip: '1、专注降低文本AIGC率，不做降重；2、适配维普检测；3、保持文本结构稳定；4、支持多轮优化，降低审查风险',
+    type: 'reduce-ai-rate' as const,
+    platform: 'weipu' as const,
+  },
+  {
+    name: '降重（知网版）',
+    price: '3.00积分/千字',
+    tooltip: '1、专注降低文本重复率；2、适配知网查重；3、在保持原意的前提下降低重复率；4、配合格式调整可提升通过率',
+    type: 'reduce-plagiarism' as const,
+    platform: 'zhiwang' as const,
+  },
+  {
+    name: '降重（维普版）',
+    price: '3.00积分/千字',
+    tooltip: '1、专注降低文本重复率；2、适配维普查重；3、优化语序和表达，保持逻辑连贯；4、适合维普终审前的深度优化',
     type: 'reduce-plagiarism' as const,
     platform: 'weipu' as const,
   },
@@ -70,6 +77,7 @@ const { runAsync: queryResultAsync } = useRequest(queryTaskResult, {
   onSuccess: (result) => {
     processingProgress.value = result.progress
     if (result.status === 'completed') {
+      clearPollingTimer()
       processingStatus.value = 'completed'
       outputText.value = result.result || ''
       resultCharCount.value = outputText.value.length
@@ -79,6 +87,7 @@ const { runAsync: queryResultAsync } = useRequest(queryTaskResult, {
       fetchPoints()
     }
     else if (result.status === 'failed') {
+      clearPollingTimer()
       processingStatus.value = 'failed'
       isProcessing.value = false
       ElMessage.error('任务处理失败')
@@ -99,6 +108,10 @@ const estimatedCost = computed(() => {
 
 const currentPoints = computed(() => {
   return pointsData.value?.points_balance ?? authStore.points ?? 0
+})
+const truncatedCurrentPoints = computed(() => {
+  const value = Math.floor(currentPoints.value * 1000) / 1000
+  return value.toFixed(3)
 })
 
 function updateCharCount() {
@@ -150,6 +163,7 @@ async function startProcessing() {
   }
 
   try {
+    clearPollingTimer()
     await submitTaskAsync(params)
   }
   catch {
@@ -158,10 +172,13 @@ async function startProcessing() {
 }
 
 let pollingTimer: number | null = null
+let pollingTimeout: number | null = null
 
 function startPollingTaskStatus() {
   if (!currentTaskId.value)
     return
+
+  clearPollingTimer()
 
   pollingTimer = window.setInterval(async () => {
     try {
@@ -176,7 +193,7 @@ function startPollingTaskStatus() {
   }, 3000) // 每3秒查询一次
 
   // 设置超时，避免无限轮询
-  setTimeout(() => {
+  pollingTimeout = window.setTimeout(() => {
     if (pollingTimer) {
       window.clearInterval(pollingTimer)
       pollingTimer = null
@@ -185,6 +202,10 @@ function startPollingTaskStatus() {
         ElMessage.warning('任务处理超时，请稍后手动查询结果')
       }
     }
+    if (pollingTimeout) {
+      window.clearTimeout(pollingTimeout)
+      pollingTimeout = null
+    }
   }, 300000) // 5分钟超时
 }
 
@@ -192,6 +213,10 @@ function clearPollingTimer() {
   if (pollingTimer) {
     window.clearInterval(pollingTimer)
     pollingTimer = null
+  }
+  if (pollingTimeout) {
+    window.clearTimeout(pollingTimeout)
+    pollingTimeout = null
   }
 }
 
@@ -223,6 +248,10 @@ onMounted(() => {
     fetchPoints()
   }
 })
+
+onBeforeUnmount(() => {
+  clearPollingTimer()
+})
 </script>
 
 <template>
@@ -237,7 +266,7 @@ onMounted(() => {
                 当前积分
               </div>
               <div class="points-value">
-                {{ currentPoints.toFixed(1) }}
+                {{ truncatedCurrentPoints }}
               </div>
               <el-button type="text" :loading="!pointsData" @click="fetchPoints">
                 刷新积分
@@ -272,15 +301,9 @@ onMounted(() => {
 
           <el-alert title="温馨提示：" type="info" :closable="false" class="mb-4">
             <div class="space-y-2 text-sm">
-              <p>1. 问题咨询请联系客服微信：lwwz6122</p>
-              <p>2. 整篇改造，请您先在wps里将文本格式改为docx，并对要修改正文(从摘要到参考文献的内容)标记红色，文本处理后会把红色改为蓝色</p>
-              <p>3. 仅降AI不会降重文本重复率，仅降重不会降低文本AIGC率，使用前不要求，请入群使用</p>
-              <p>4. 平台AI降重可以对取/维普/万方/格子达/paperyy等主流平台，首码过不了paperpass</p>
+              <p>1. 问题咨询请联系客服微信：wwdjai</p>
               <p class="text-red-500">
-                5. 9月开学季特惠：2025/9/04-2025/9/30充值，充充值100元以上，冲多少送多少
-              </p>
-              <p class="text-red-500">
-                6. 想成为分站代理，请您联系客服微信：lwwz6122（可享受代理返利，代理返利比例高达70%）
+                2. 想成为分站代理，请您联系客服微信：问题咨询请联系客服微信：wwdjai
               </p>
             </div>
           </el-alert>
@@ -397,6 +420,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .right-sidebar {
@@ -404,12 +428,15 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .input-card, .result-card {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: visible;
 }
 
 .input-area, .result-area {
@@ -462,7 +489,6 @@ onMounted(() => {
   display: flex;
   gap: 8px;
 }
-
 /* 响应式设计 */
 @media (max-width: 1024px) {
   .home-content {
@@ -473,6 +499,18 @@ onMounted(() => {
   .left-sidebar, .right-sidebar {
     flex: none;
     width: 100%;
+  }
+
+  .main-content,
+  .right-sidebar {
+    flex: none;
+    overflow: visible;
+  }
+
+  .input-card,
+  .result-card {
+    flex: none;
+    height: auto;
   }
 
   .main-content {
@@ -568,49 +606,5 @@ onMounted(() => {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-}
-
-/* 优化滚动条样式 */
-:deep(.el-textarea__inner) {
-    scrollbar-width: thin;
-    scrollbar-color: #c1c1c1 transparent;
-}
-
-:deep(.el-textarea__inner)::-webkit-scrollbar {
-    width: 6px;
-}
-
-:deep(.el-textarea__inner)::-webkit-scrollbar-track {
-    background: transparent;
-    border-radius: 3px;
-}
-
-:deep(.el-textarea__inner)::-webkit-scrollbar-thumb {
-    background-color: #c1c1c1;
-    border-radius: 3px;
-    transition: background-color 0.2s ease;
-}
-
-:deep(.el-textarea__inner)::-webkit-scrollbar-thumb:hover {
-    background-color: #a8a8a8;
-}
-
-.left-sidebar::-webkit-scrollbar {
-    width: 6px;
-}
-
-.left-sidebar::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.left-sidebar::-webkit-scrollbar-thumb {
-    background-color: #c1c1c1;
-    border-radius: 3px;
-    transition: background-color 0.2s ease;
-}
-
-.left-sidebar::-webkit-scrollbar-thumb:hover {
-    background-color: #a8a8a8;
 }
 </style>

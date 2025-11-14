@@ -53,32 +53,63 @@ const { runAsync: changePasswordAsync, loading: changePasswordLoading } = useReq
   },
 })
 
-// 复制 Token
-async function copyToken() {
+function resolveRefValue<T>(source: T | { value: T } | null | undefined): T | undefined {
+  if (source && typeof source === 'object' && 'value' in source)
+    return (source as { value: T }).value
+  return source ?? undefined
+}
+
+function fallbackCopy(text: string) {
+  if (typeof document === 'undefined')
+    throw new Error('document not available')
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  const success = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  if (!success)
+    throw new Error('fallback copy failed')
+}
+
+async function copyText(text: string, successMessage: string) {
+  if (!text) {
+    ElMessage.warning('暂无可复制的内容')
+    return
+  }
+
   try {
-    await navigator.clipboard.writeText(auth.accessToken)
-    ElMessage.success('已复制到剪贴板')
+    const canUseClipboard = typeof navigator !== 'undefined' && typeof window !== 'undefined' && navigator.clipboard && window.isSecureContext
+    if (canUseClipboard)
+      await navigator.clipboard.writeText(text)
+    else
+      fallbackCopy(text)
+    ElMessage.success(successMessage)
   }
   catch {
     ElMessage.error('复制失败，请手动复制')
   }
 }
 
+// 复制 Token
+async function copyToken() {
+  const token = resolveRefValue(auth.accessToken) ?? ''
+  await copyText(token, '已复制到剪贴板')
+}
+
 // 复制邀请码
 async function copyInviteCode() {
-  const inviteCode = auth.user.value?.invite_code
-  if (!inviteCode) {
+  const user = resolveRefValue(auth.user)
+  const inviteCodeValue = user?.invite_code || ''
+  if (!inviteCodeValue) {
     ElMessage.warning('暂无邀请码')
     return
   }
 
-  try {
-    await navigator.clipboard.writeText(inviteCode)
-    ElMessage.success('邀请码已复制到剪贴板')
-  }
-  catch {
-    ElMessage.error('复制失败，请手动复制')
-  }
+  await copyText(inviteCodeValue, '邀请码已复制到剪贴板')
 }
 
 // 提交修改密码
@@ -146,7 +177,11 @@ const phoneDisplay = computed(() => {
 })
 
 const pointsBalance = computed(() => {
-  return auth.user?.points_balance ?? 0
+  const pointsValue = resolveRefValue(auth.points)
+  if (typeof pointsValue === 'number')
+    return pointsValue
+  const user = resolveRefValue(auth.user)
+  return user?.points_balance ?? 0
 })
 
 const inviteCode = computed(() => {

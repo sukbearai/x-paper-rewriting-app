@@ -29,6 +29,11 @@ const currentPoints = computed(() => {
   return pointsData.value?.points_balance ?? authStore.points ?? 0
 })
 
+const truncatedCurrentPoints = computed(() => {
+  const value = Math.floor(currentPoints.value * 1000) / 1000
+  return value.toFixed(3)
+})
+
 const costPerThousand = computed(() => {
   return pointsData.value?.cost_per_1000_chars ?? 3
 })
@@ -140,7 +145,7 @@ onMounted(() => {
             当前积分余额
           </div>
           <div class="points-value">
-            {{ currentPoints.toFixed(1) }}
+            {{ truncatedCurrentPoints }}
           </div>
         </div>
 
@@ -213,7 +218,7 @@ onMounted(() => {
             <div class="points-summary">
               <div class="summary-item">
                 <span class="summary-label">可用积分</span>
-                <span class="summary-value available">{{ currentPoints.toFixed(1) }}</span>
+                <span class="summary-value available">{{ truncatedCurrentPoints }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-label">消耗标准</span>
