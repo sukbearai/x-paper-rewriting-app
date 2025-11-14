@@ -10,9 +10,9 @@ const route = useRoute()
 const router = useRouter()
 const activeMenu = ref('home')
 
-const isLoggedIn = computed(() => authStore.isAuthenticated.value)
-const userName = computed(() => authStore.displayName.value)
-const userPoints = computed(() => authStore.points.value ?? authStore.user.value?.points_balance ?? 0)
+const isLoggedIn = computed(() => authStore.isAuthenticated)
+const userName = computed(() => authStore.displayName)
+const userPoints = computed(() => authStore.points ?? authStore.user?.points_balance ?? 0)
 
 watch(
   isLoggedIn,
@@ -182,7 +182,9 @@ function goToRecharge() {
 
 <style>
 #app {
-  height: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .gradient-bg {
@@ -191,15 +193,15 @@ function goToRecharge() {
 }
 .main-content {
   padding: 0;
-  height: calc(100vh - 64px);
-  overflow-y: auto;
+  flex: 1;
+  overflow: hidden;
   background: linear-gradient(to right, #e6f3ff, #ffffff, #e6f3ff);
-
 }
 
 /* 保持与Home.vue一致的菜单样式 */
 .el-menu-demo {
   height: 64px;
+  flex-shrink: 0;
 }
 
 .menu-icon {

@@ -262,14 +262,14 @@ function openAuthModal() {
 }
 
 onMounted(() => {
-  if (authStore.isAuthenticated.value)
+  if (authStore.isAuthenticated)
     router.replace('/')
   else
     showAuthModal.value = true
 })
 
 watch(
-  () => authStore.isAuthenticated.value,
+  () => authStore.isAuthenticated,
   (loggedIn) => {
     if (loggedIn) {
       showAuthModal.value = false
@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="landing-container">
+  <div class="landing-container" style="height: 100vh; overflow: hidden;">
     <!-- Main Content -->
     <div class="landing-content">
       <div class="content-left">
@@ -304,142 +304,214 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Authentication Modal -->
-    <el-dialog v-model="showAuthModal" title="" width="500px" :show-close="true">
-      <h2 style="font-size: 24px; font-weight: bold;display: flex;align-items: center;justify-content: center;">
-        <svg-icon name="renyuan" style="height: 24px; width: 24px;margin-right: 4px;" />欢迎您！
-      </h2>
-      <p style="color: #ccc;margin-top: 10px;text-align: center;">
-        登录或注册以继续
-      </p>
+    <el-dialog
+      v-model="showAuthModal"
+      class="auth-dialog"
+      :style="{ '--el-dialog-width': '640px' }"
+      :show-close="true"
+    >
+      <template #header>
+        <div class="dialog-header">
+          <div class="dialog-title">
+            <svg-icon name="renyuan" class="dialog-title__icon" />
+            <span>欢迎您！</span>
+          </div>
+          <p class="dialog-subtitle">
+            登录或注册以继续
+          </p>
+        </div>
+      </template>
       <el-tabs v-model="activeName" class="auth-tabs">
         <!-- 登录 -->
         <el-tab-pane label="登录" name="login">
-          <div class="login-mode-toggle">
-            <el-radio-group v-model="loginMode" size="small">
-              <el-radio-button label="otp">
-                验证码登录
-              </el-radio-button>
-              <el-radio-button label="password">
-                密码登录
-              </el-radio-button>
-            </el-radio-group>
+          <div class="auth-panel">
+            <div class="auth-panel__toggle">
+              <el-radio-group v-model="loginMode" size="small">
+                <el-radio-button label="otp">
+                  验证码登录
+                </el-radio-button>
+                <el-radio-button label="password">
+                  密码登录
+                </el-radio-button>
+              </el-radio-group>
+            </div>
+
+            <el-form
+              v-if="loginMode === 'otp'"
+              ref="loginOtpRef"
+              :model="loginOtpForm"
+              :rules="loginOtpRules"
+              class="auth-form"
+              label-position="top"
+              @submit.prevent="submit('login')"
+            >
+              <el-form-item label="手机号" prop="phone">
+                <el-input
+                  v-model="loginOtpForm.phone"
+                  placeholder="请输入11位手机号"
+                  maxlength="11"
+                  pattern="[0-9]*"
+                  inputmode="numeric"
+                  @keyup.enter.prevent="submit('login')"
+                >
+                  <template #prepend>
+                    +86
+                  </template>
+                </el-input>
+              </el-form-item>
+
+              <el-form-item label="验证码" prop="code">
+                <el-input
+                  v-model="loginOtpForm.code"
+                  placeholder="请输入短信验证码"
+                  maxlength="6"
+                  @keyup.enter.prevent="submit('login')"
+                >
+                  <template #append>
+                    <el-button :disabled="cooldown > 0 || smsLoading" :loading="smsLoading" @click="sendSms('login')">
+                      {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
+                    </el-button>
+                  </template>
+                </el-input>
+              </el-form-item>
+
+              <el-form-item>
+                <el-button type="primary" class="submit-btn" :loading="loginButtonLoading" @click="submit('login')">
+                  登录
+                </el-button>
+              </el-form-item>
+            </el-form>
+
+            <el-form
+              v-else
+              ref="loginPasswordRef"
+              :model="loginPasswordForm"
+              :rules="loginPasswordRules"
+              class="auth-form"
+              label-position="top"
+              @submit.prevent="submit('login')"
+            >
+              <el-form-item label="用户名" prop="username">
+                <el-input
+                  v-model="loginPasswordForm.username"
+                  placeholder="请输入用户名"
+                  @keyup.enter.prevent="submit('login')"
+                />
+              </el-form-item>
+
+              <el-form-item label="密码" prop="password">
+                <el-input
+                  v-model="loginPasswordForm.password"
+                  type="password"
+                  placeholder="请输入密码"
+                  show-password
+                  @keyup.enter.prevent="submit('login')"
+                />
+              </el-form-item>
+
+              <el-form-item>
+                <el-button type="primary" class="submit-btn" :loading="loginButtonLoading" @click="submit('login')">
+                  登录
+                </el-button>
+              </el-form-item>
+            </el-form>
           </div>
-
-          <el-form
-            v-if="loginMode === 'otp'"
-            ref="loginOtpRef"
-            :model="loginOtpForm"
-            :rules="loginOtpRules"
-            label-width="80px"
-          >
-            <el-form-item label="手机号" prop="phone">
-              <el-input
-                v-model="loginOtpForm.phone"
-                placeholder="请输入11位手机号"
-                maxlength="11"
-                pattern="[0-9]*"
-                inputmode="numeric"
-              >
-                <template #prepend>
-                  +86
-                </template>
-              </el-input>
-            </el-form-item>
-
-            <el-form-item label="验证码" prop="code">
-              <el-input v-model="loginOtpForm.code" placeholder="请输入短信验证码" maxlength="6">
-                <template #append>
-                  <el-button :disabled="cooldown > 0 || smsLoading" :loading="smsLoading" @click="sendSms('login')">
-                    {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
-                  </el-button>
-                </template>
-              </el-input>
-            </el-form-item>
-
-            <el-form-item>
-              <el-button type="primary" style="width: 100%" :loading="loginButtonLoading" @click="submit('login')">
-                登录
-              </el-button>
-            </el-form-item>
-          </el-form>
-
-          <el-form
-            v-else
-            ref="loginPasswordRef"
-            :model="loginPasswordForm"
-            :rules="loginPasswordRules"
-            label-width="80px"
-          >
-            <el-form-item label="用户名" prop="username">
-              <el-input v-model="loginPasswordForm.username" placeholder="请输入用户名" />
-            </el-form-item>
-
-            <el-form-item label="密码" prop="password">
-              <el-input v-model="loginPasswordForm.password" type="password" placeholder="请输入密码" show-password />
-            </el-form-item>
-
-            <el-form-item>
-              <el-button type="primary" style="width: 100%" :loading="loginButtonLoading" @click="submit('login')">
-                登录
-              </el-button>
-            </el-form-item>
-          </el-form>
         </el-tab-pane>
 
         <!-- 注册 -->
         <el-tab-pane label="注册" name="register">
-          <el-form ref="registerRef" :model="registerForm" :rules="registerRules" label-width="80px">
-            <el-form-item label="用户名" prop="username">
-              <el-input v-model="registerForm.username" placeholder="请输入用户名" maxlength="20" />
-            </el-form-item>
+          <div class="auth-panel">
+            <el-form
+              ref="registerRef"
+              :model="registerForm"
+              :rules="registerRules"
+              class="auth-form"
+              label-position="top"
+              @submit.prevent="submit('register')"
+            >
+              <el-form-item label="用户名" prop="username">
+                <el-input
+                  v-model="registerForm.username"
+                  placeholder="请输入用户名"
+                  maxlength="20"
+                  @keyup.enter.prevent="submit('register')"
+                />
+              </el-form-item>
 
-            <el-form-item label="邮箱" prop="email">
-              <el-input v-model="registerForm.email" placeholder="请输入邮箱" />
-            </el-form-item>
+              <el-form-item label="邮箱" prop="email">
+                <el-input
+                  v-model="registerForm.email"
+                  placeholder="请输入邮箱"
+                  @keyup.enter.prevent="submit('register')"
+                />
+              </el-form-item>
 
-            <el-form-item label="手机号" prop="phone">
-              <el-input
-                v-model="registerForm.phone"
-                placeholder="请输入11位手机号"
-                maxlength="11"
-                pattern="[0-9]*"
-                inputmode="numeric"
-              >
-                <!-- 固定前缀 -->
-                <template #prepend>
-                  +86
-                </template>
-              </el-input>
-            </el-form-item>
+              <el-form-item label="手机号" prop="phone">
+                <el-input
+                  v-model="registerForm.phone"
+                  placeholder="请输入11位手机号"
+                  maxlength="11"
+                  pattern="[0-9]*"
+                  inputmode="numeric"
+                  @keyup.enter.prevent="submit('register')"
+                >
+                  <!-- 固定前缀 -->
+                  <template #prepend>
+                    +86
+                  </template>
+                </el-input>
+              </el-form-item>
 
-            <el-form-item label="密码" prop="password">
-              <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" show-password />
-            </el-form-item>
+              <el-form-item label="密码" prop="password">
+                <el-input
+                  v-model="registerForm.password"
+                  type="password"
+                  placeholder="请输入密码"
+                  show-password
+                  @keyup.enter.prevent="submit('register')"
+                />
+              </el-form-item>
 
-            <el-form-item label="确认密码" prop="confirmPassword">
-              <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" show-password />
-            </el-form-item>
+              <el-form-item label="确认密码" prop="confirmPassword">
+                <el-input
+                  v-model="registerForm.confirmPassword"
+                  type="password"
+                  placeholder="请确认密码"
+                  show-password
+                  @keyup.enter.prevent="submit('register')"
+                />
+              </el-form-item>
 
-            <el-form-item label="验证码" prop="code">
-              <el-input v-model="registerForm.code" placeholder="请输入短信验证码" maxlength="6">
-                <template #append>
-                  <el-button :disabled="cooldown > 0 || smsLoading" :loading="smsLoading" @click="sendSms('register')">
-                    {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
-                  </el-button>
-                </template>
-              </el-input>
-            </el-form-item>
+              <el-form-item label="验证码" prop="code">
+                <el-input
+                  v-model="registerForm.code"
+                  placeholder="请输入短信验证码"
+                  maxlength="6"
+                  @keyup.enter.prevent="submit('register')"
+                >
+                  <template #append>
+                    <el-button :disabled="cooldown > 0 || smsLoading" :loading="smsLoading" @click="sendSms('register')">
+                      {{ cooldown > 0 ? `${cooldown}s` : '获取验证码' }}
+                    </el-button>
+                  </template>
+                </el-input>
+              </el-form-item>
 
-            <el-form-item label="邀请码" prop="invite">
-              <el-input v-model="registerForm.invite" placeholder="请输入邀请码（可选）" />
-            </el-form-item>
+              <el-form-item label="邀请码" prop="invite">
+                <el-input
+                  v-model="registerForm.invite"
+                  placeholder="请输入邀请码（可选）"
+                  @keyup.enter.prevent="submit('register')"
+                />
+              </el-form-item>
 
-            <el-form-item>
-              <el-button type="success" style="width: 100%" :loading="registerLoading" @click="submit('register')">
-                注册
-              </el-button>
-            </el-form-item>
-          </el-form>
+              <el-form-item>
+                <el-button type="success" class="submit-btn" :loading="registerLoading" @click="submit('register')">
+                  注册
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
@@ -538,47 +610,231 @@ onBeforeUnmount(() => {
 }
 
 /* Modal Styles */
-:deep(.el-tabs__nav-scroll){
-  width: 100%;
+:deep(.auth-dialog) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+:deep(.auth-dialog .el-dialog) {
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.94) 100%);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.15);
+  max-width: min(680px, calc(100vw - 32px));
+}
+
+:deep(.auth-dialog .el-dialog__header) {
+  padding: 30px 32px 0 32px;
+  margin: 0;
+}
+
+:deep(.auth-dialog .el-dialog__headerbtn) {
+  top: 24px;
+  right: 24px;
+}
+
+:deep(.auth-dialog .el-dialog__body) {
+  padding: 24px 32px 36px;
+}
+
+.dialog-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 26px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dialog-title__icon {
+  width: 34px;
+  height: 34px;
+  color: #2563eb;
+}
+
+.dialog-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
 .auth-tabs:deep(.el-tabs__nav-wrap) {
   display: flex;
   justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.auth-tabs:deep(.el-tabs__nav-scroll) {
+  width: 100%;
 }
 
 .auth-tabs:deep(.el-tabs__nav) {
   width: 100%;
   display: flex;
+  gap: 6px;
 }
 
 .auth-tabs:deep(.el-tabs__item) {
   flex: 1;
   text-align: center;
-}
-:deep(.el-dialog) {
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px);
+  border-radius: 12px 12px 0 0;
+  transition: background-color 0.2s ease;
 }
 
-:deep(.el-dialog__header) {
-  padding: 20px 20px 0 20px;
+.auth-tabs:deep(.el-tabs__item.is-active) {
+  color: #2563eb;
+  font-weight: 600;
 }
 
-:deep(.el-dialog__body) {
-  padding: 20px;
+.auth-tabs:deep(.el-tab-pane) {
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-:deep(.el-tabs__nav-wrap::after) {
-  background-color: #e4e7ed;
+.auth-tabs:deep(.el-tabs__nav-wrap::after) {
+  background-color: transparent;
 }
 
-:deep(.el-tabs__active-bar) {
-  background-color: #409EFF;
+.auth-tabs:deep(.el-tabs__active-bar) {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
 }
 
-:deep(.el-tabs__item.is-active) {
-  color: #409EFF;
+.auth-panel {
+  width: min(420px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.auth-panel__toggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.auth-panel__toggle :deep(.el-radio-button__inner) {
+  padding: 8px 18px;
+}
+
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-form :deep(.el-form-item) {
+  margin-bottom: 0;
+  width: 100%;
+}
+
+.auth-form :deep(.el-form-item__label) {
+  padding-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.auth-form :deep(.el-form-item__content) {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-form :deep(.el-form-item__content > .el-button) {
+  width: 262px;
+  align-self: center;
+}
+
+.auth-form :deep(.el-input__wrapper) {
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.auth-form :deep(.el-input-group__prepend) {
+  padding: 0 12px;
+}
+
+.auth-form :deep(.el-input-group__prepend),
+.auth-form :deep(.el-input-group__append) {
+  background: #f3f4f6;
+  border: none;
+  display: flex;
+  align-items: center;
+}
+
+.auth-form :deep(.el-input-group--prepend .el-input__wrapper) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.auth-form :deep(.el-input-group--append .el-input__wrapper) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.auth-form :deep(.el-input-group__prepend) {
+  border-radius: 10px 0 0 10px;
+  padding: 0 16px;
+}
+
+.auth-form :deep(.el-input-group__append) {
+  border-radius: 0 10px 10px 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.auth-form :deep(.el-input-group__append .el-button) {
+  border-radius: 0;
+  height: 100%;
+  border: none;
+  padding: 0 18px;
+  white-space: nowrap;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.submit-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.submit-btn.el-button--primary {
+  background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+  border: none;
+}
+
+.submit-btn.el-button--primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%);
+}
+
+.submit-btn.el-button--success {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  border: none;
+}
+
+.submit-btn.el-button--success:hover {
+  background: linear-gradient(135deg, #059669 0%, #22c55e 100%);
 }
 
 /* Responsive Design */

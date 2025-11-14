@@ -77,6 +77,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
     finally {
       clearSession()
+      // 强制页面重定向到登录页
+      window.location.href = '/login'
     }
   }
 

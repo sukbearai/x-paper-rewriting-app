@@ -6,6 +6,30 @@ import Proxy from '../page/Proxy.vue'
 import UserCenter from '../page/UserCenter.vue'
 import BalanceRecharge from '../page/BalanceRecharge.vue'
 
+interface PersistedAuthState {
+  accessToken?: string
+  expiresAt?: number
+  user?: {
+    role?: string
+  }
+}
+
+function readPersistedAuth(): PersistedAuthState | null {
+  try {
+    const raw = localStorage.getItem('auth')
+    return raw ? JSON.parse(raw) : null
+  }
+  catch {
+    return null
+  }
+}
+
+function hasValidSession(auth: PersistedAuthState | null): boolean {
+  if (!auth?.accessToken || !auth?.expiresAt)
+    return false
+  return Date.now() < auth.expiresAt
+}
+
 declare module 'vue-router' {
   interface RouteMeta {
     roles?: string[]
@@ -49,14 +73,30 @@ const router = createRouter({
   routes,
 })
 router.beforeEach((to, from, next) => {
-  const userRole = localStorage.getItem('userRole') || 'guest' // 默认为访客
+  const authState = readPersistedAuth()
+  const isLoggedIn = hasValidSession(authState)
+  const userRole = authState?.user?.role || localStorage.getItem('userRole') || 'guest'
+  const allowedRoles = (to.meta.roles as string[] | undefined) || []
 
-  if (to.meta.roles && !to.meta.roles.includes(userRole)) {
-    next({ name: 'Home' }) // 如果没有权限，重定向到首页
+  // 如果要去登录页面，且已登录，重定向到首页
+  if (to.name === 'Login' && isLoggedIn) {
+    next({ name: 'Home' })
+    return
   }
-  else {
-    next()
+
+  // 如果未登录且不是登录页面，重定向到登录页
+  if (!isLoggedIn && to.name !== 'Login') {
+    next({ name: 'Login', query: { redirect: to.fullPath } })
+    return
   }
+
+  // 已登录但无访问权限时退回首页
+  if (allowedRoles.length && !allowedRoles.includes(userRole)) {
+    next({ name: 'Home' })
+    return
+  }
+
+  next()
 })
 
 export default router
