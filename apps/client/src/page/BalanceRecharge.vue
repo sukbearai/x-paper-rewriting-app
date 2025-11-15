@@ -147,7 +147,7 @@ async function handleRefund(transaction: PointsTransaction) {
       await fetchTransactions(transaction.transaction_type)
   }
   catch {
-    ElMessage.error('积分返还失败，请稍后重试')
+    // ElMessage.error('积分返还失败，请稍后重试')
   }
   finally {
     refundLoading[key] = false

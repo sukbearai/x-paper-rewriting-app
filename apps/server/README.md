@@ -1297,3 +1297,166 @@ curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=
 - 交易金额正数表示收入，负数表示支出
 
 ---
+
+### 11. 积分返还申请
+
+**端点**: `POST /points/refund`
+
+**描述**: 针对失败的积分消费记录申请返还积分。需要用户登录认证。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**请求体**:
+```json
+{
+  "transaction_id": 123
+}
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`
+- `transaction_id` (必需): 需要返还的积分交易ID，必须为当前用户的消费记录，且状态为失败
+
+**cURL 示例**:
+```bash
+curl -X POST https://rewriting.congrongtech.cn/points/refund \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "transaction_id": 123
+  }'
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "积分返还成功",
+  "data": {
+    "success": true,
+    "points_balance": 456.4
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 400 - 请求参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "交易ID必须为整数",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "交易ID必须大于0",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "仅消费记录支持返还",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "成功交易无需返还",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "无效的交易金额，无法返还",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "该交易已返还积分，请勿重复操作",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户或交易不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "用户信息不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 404,
+    "message": "交易记录不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "返还状态查询失败，请稍后再试",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 500,
+    "message": "更新积分余额失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 500,
+    "message": "记录返还交易失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- 仅失败的积分消费记录（`transaction_type` 为 `spend` 且 `is_successful=false`）支持返还
+- 每笔返还都会新增一条积分充值交易，`reference_id` 为 `refund:<原交易ID>`
+- 返还成功后会同步更新用户积分余额，余额按三位小数截断
+- 若返还流程执行异常，系统会尝试回滚用户积分余额
+
+---
