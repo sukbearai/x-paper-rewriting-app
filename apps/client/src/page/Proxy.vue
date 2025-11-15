@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import dayjs from 'dayjs'
 import DragTable from '@/components/drag-table.vue'
 import type { UserListItem } from '@/api/interface'
 import { queryUserList } from '@/api/services'
@@ -35,8 +36,8 @@ const usersColumns = ref([
   { prop: 'role', label: '角色', width: 120 },
   { prop: 'points_balance', label: '积分余额', minWidth: 140 },
   { prop: 'invite_code', label: '邀请码', minWidth: 140 },
-  { prop: 'invited_by', label: '邀请人', minWidth: 140 },
-  { prop: 'created_at', label: '创建时间', minWidth: 180 },
+  { prop: 'invited_by_username', label: '邀请人用户名', minWidth: 160 },
+  { prop: 'created_at', label: '创建时间', minWidth: 180, slot: 'created_at' },
 ])
 const usersData = ref<UserListItem[]>([])
 const usersPage = ref<PaginationState>({
@@ -94,6 +95,14 @@ function handleUsersSizeChange(payload: PageChangePayload) {
   usersPage.value.pageSize = payload.size
   usersPage.value.pageNum = payload.page
   getUsersData()
+}
+
+function formatDate(value?: string | null) {
+  if (!value)
+    return '-'
+
+  const parsed = dayjs(value)
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : value
 }
 
 // 模拟转账记录
@@ -190,7 +199,11 @@ watch(activeTab, (tab) => {
           :page-num="usersPage.pageNum"
           @page-num-change="handleUsersPageChange"
           @page-size-change="handleUsersSizeChange"
-        />
+        >
+          <template #created_at="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </DragTable>
       </el-tab-pane>
 
       <el-tab-pane label="转账记录" name="transfers">

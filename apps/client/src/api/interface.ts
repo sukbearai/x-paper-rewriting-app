@@ -81,6 +81,7 @@ export interface UserListItem {
   points_balance: number
   invite_code?: string | null
   invited_by?: string | null
+  invited_by_username?: string | null
   created_at: string
 }
 
