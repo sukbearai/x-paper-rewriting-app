@@ -73,11 +73,31 @@ export type UserRole = 'admin' | 'agent' | 'user'
 
 export interface UserListItem {
   id: number
-  user_id: number
+  user_id: string
   username: string
   email: string
   phone?: string | null
   role: UserRole
+  points_balance: number
+  invite_code?: string | null
+  invited_by?: string | null
+  invited_by_username?: string | null
+  created_at: string
+}
+
+export interface UpdateUserRoleParams {
+  target_user_id: string
+  role: UserRole
+}
+
+export interface UpdateUserRoleResponse {
+  id: number
+  user_id: string
+  username: string
+  email: string
+  phone?: string | null
+  role: UserRole
+  previous_role: UserRole
   points_balance: number
   invite_code?: string | null
   invited_by?: string | null

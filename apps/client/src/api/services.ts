@@ -16,6 +16,8 @@ import type {
   SubmitTaskResponse,
   TaskResultData,
   TaskResultParams,
+  UpdateUserRoleParams,
+  UpdateUserRoleResponse,
   UserListQueryParams,
   UserListResponse,
 } from '@/api/interface'
@@ -115,5 +117,13 @@ export function refundPointsTransaction(transactionId: number) {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
     data: payload,
+  })
+}
+
+export function updateUserRole(data: UpdateUserRoleParams) {
+  return request<UpdateUserRoleResponse>('/user/update-role', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
   })
 }

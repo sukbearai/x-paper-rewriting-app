@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import dayjs from 'dayjs'
+import { ElMessage } from 'element-plus'
 import DragTable from '@/components/drag-table.vue'
-import type { UserListItem } from '@/api/interface'
-import { queryUserList } from '@/api/services'
+import type { UserListItem, UserRole } from '@/api/interface'
+import { queryUserList, updateUserRole } from '@/api/services'
 import { useAuthStore } from '@/store/auth'
 
 type TabKey = 'users' | 'transfers'
@@ -22,8 +24,23 @@ interface PageChangePayload {
 }
 
 const authStore = useAuthStore()
+const { user: currentUser, isAuthenticated } = storeToRefs(authStore)
 
 const activeTab = ref<TabKey>('users')
+const isAdmin = computed(() => currentUser.value?.role === 'admin')
+const roleUpdating = ref<Record<string, boolean>>({})
+
+const roleOptions: Array<{ label: string, value: UserRole }> = [
+  { label: '管理员', value: 'admin' },
+  { label: '代理', value: 'agent' },
+  { label: '普通用户', value: 'user' },
+]
+
+const roleLabelMap: Record<UserRole, string> = {
+  admin: '管理员',
+  agent: '代理',
+  user: '普通用户',
+}
 
 // 用户列表
 const usersLoading = ref(false)
@@ -33,7 +50,7 @@ const usersColumns = ref([
   { prop: 'username', label: '用户名', minWidth: 140 },
   { prop: 'email', label: '邮箱', minWidth: 200 },
   { prop: 'phone', label: '手机号', minWidth: 160 },
-  { prop: 'role', label: '角色', width: 120 },
+  { prop: 'role', label: '角色', width: 160, slot: 'role' },
   { prop: 'points_balance', label: '积分余额', minWidth: 140 },
   { prop: 'invite_code', label: '邀请码', minWidth: 140 },
   { prop: 'invited_by_username', label: '邀请人用户名', minWidth: 160 },
@@ -47,7 +64,7 @@ const usersPage = ref<PaginationState>({
 })
 
 async function getUsersData() {
-  if (!authStore.isAuthenticated)
+  if (!isAuthenticated.value)
     return
 
   const requestId = usersRequestId.value + 1
@@ -95,6 +112,56 @@ function handleUsersSizeChange(payload: PageChangePayload) {
   usersPage.value.pageSize = payload.size
   usersPage.value.pageNum = payload.page
   getUsersData()
+}
+
+function setRoleUpdating(userId: string, value: boolean) {
+  roleUpdating.value[userId] = value
+}
+
+function isRoleUpdating(target: UserListItem) {
+  const key = String(target.user_id || target.id)
+  return !!roleUpdating.value[key]
+}
+
+async function handleRoleChange(target: UserListItem, nextRole: UserRole) {
+  if (!isAdmin.value)
+    return
+
+  const targetId = String(target.user_id || target.id)
+  if (!targetId)
+    return
+
+  if (roleUpdating.value[targetId] || target.role === nextRole)
+    return
+
+  const previousRole = target.role
+  target.role = nextRole
+  setRoleUpdating(targetId, true)
+
+  try {
+    const response = await updateUserRole({
+      target_user_id: targetId,
+      role: nextRole,
+    })
+
+    target.role = response.role
+    if (currentUser.value && currentUser.value.id === response.user_id) {
+      currentUser.value.role = response.role
+      localStorage.setItem('userRole', response.role)
+    }
+
+    ElMessage.success('角色更新成功')
+  }
+  catch {
+    target.role = previousRole
+  }
+  finally {
+    setRoleUpdating(targetId, false)
+  }
+}
+
+function handleRoleSelect(target: UserListItem, value: string) {
+  void handleRoleChange(target, value as UserRole)
 }
 
 function formatDate(value?: string | null) {
@@ -159,7 +226,7 @@ const transfersData = ref([
 ])
 
 watch(
-  () => authStore.isAuthenticated,
+  isAuthenticated,
   (isAuthed) => {
     if (!isAuthed) {
       usersData.value = []
@@ -200,6 +267,20 @@ watch(activeTab, (tab) => {
           @page-num-change="handleUsersPageChange"
           @page-size-change="handleUsersSizeChange"
         >
+          <template #role="{ row }">
+            <el-select
+              v-if="isAdmin"
+              :model-value="row.role"
+              size="small"
+              placeholder="选择角色"
+              :loading="isRoleUpdating(row)"
+              :disabled="isRoleUpdating(row)"
+              @change="handleRoleSelect(row, $event)"
+            >
+              <el-option v-for="item in roleOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-tag v-else>{{ roleLabelMap[row.role] ?? row.role }}</el-tag>
+          </template>
           <template #created_at="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
