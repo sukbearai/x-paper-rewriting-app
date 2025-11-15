@@ -27,7 +27,20 @@ interface ChangePasswordRequestBody {
   new_password?: string
 }
 
-const user = new Hono<{ Bindings: DataBaseEnvBindings }>()
+interface ProfileRecord {
+  id: number
+  user_id: string
+  username: string | null
+  email: string | null
+  phone: string | null
+  role: string | null
+  points_balance: number | null
+  invite_code: string | null
+  invited_by: number | null
+  created_at: string
+}
+
+const user = new Hono<{ Bindings: DataBaseEnvBindings, Variables: AuthVariables }>()
 
 const loginSchema = z.object({
   username: z.string()
@@ -491,6 +504,89 @@ user.post('/register', async (c) => {
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
     return c.json(createErrorResponse(`注册过程未知错误: ${message || '服务器内部错误'} [步骤: 异常捕获]`, 500), 500)
+  }
+})
+
+user.get('/list', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId')
+    const username = c.get('username')
+    const roleRaw = c.get('role')
+
+    const role = (roleRaw || '').toLowerCase()
+
+    console.log(`[user:list] 用户 ${username}(${userId}) 请求用户列表，角色：${role}`)
+
+    if (role !== 'admin' && role !== 'agent') {
+      return c.json(createErrorResponse('无权访问', 403), 403)
+    }
+
+    const supabase = createSupabaseAdminClient(c.env)
+
+    let usersData: ProfileRecord[] = []
+
+    if (role === 'admin') {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('[user:list] 管理员查询用户列表失败:', error)
+        return c.json(createErrorResponse('获取用户列表失败', 500), 500)
+      }
+
+      usersData = (data || []) as ProfileRecord[]
+    }
+    else {
+      const { data: agentProfile, error: agentProfileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      if (agentProfileError || !agentProfile) {
+        console.error('[user:list] 代理用户档案查询失败:', agentProfileError)
+        return c.json(createErrorResponse('用户档案不存在', 404), 404)
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+        .eq('invited_by', agentProfile.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('[user:list] 代理查询下级用户失败:', error)
+        return c.json(createErrorResponse('获取下级用户失败', 500), 500)
+      }
+
+      usersData = (data || []) as ProfileRecord[]
+    }
+
+    const users = usersData.map(item => ({
+      id: item.id,
+      user_id: item.user_id,
+      username: item.username,
+      email: item.email,
+      phone: item.phone,
+      role: item.role || 'user',
+      points_balance: item.points_balance ?? 0,
+      invite_code: item.invite_code,
+      invited_by: item.invited_by,
+      created_at: item.created_at,
+    }))
+
+    return c.json(createSuccessResponse({
+      users,
+      total: users.length,
+      scope: role === 'admin' ? 'all' : 'downline',
+    }, '获取用户列表成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.error('[user:list] 获取用户列表异常:', err)
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })
 

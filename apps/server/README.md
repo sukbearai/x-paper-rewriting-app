@@ -409,7 +409,106 @@ curl -X POST https://rewriting.congrongtech.cn/user/login \
 
 ---
 
-### 4. 用户退出登录
+### 4. 查询用户列表
+
+**端点**: `GET /user/list`
+
+**描述**: 查询用户列表，需要登录并具备 `admin` 或 `agent` 角色。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**权限说明**:
+- 管理员（`admin`）可以查看所有用户。
+- 代理（`agent`）仅能查看自己邀请的下级用户。
+
+**cURL 示例**:
+```bash
+# 管理员查询所有用户
+curl -X GET https://rewriting.congrongtech.cn/user/list \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 代理查询下级用户
+curl -X GET https://rewriting.congrongtech.cn/user/list \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "获取用户列表成功",
+  "data": {
+    "users": [
+      {
+        "id": 1,
+        "user_id": "uuid-string",
+        "username": "testuser",
+        "email": "test@example.com",
+        "phone": "+8613800138000",
+        "role": "user",
+        "points_balance": 120,
+        "invite_code": "INV001",
+        "invited_by": null,
+        "created_at": "2023-12-01T10:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "scope": "all"
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**响应字段说明**:
+- `users`: 用户数组，字段包含 `id`、`user_id`、`username`、`email`、`phone`、`role`、`points_balance`、`invite_code`、`invited_by`、`created_at`。
+- `total`: 返回的用户数量。
+- `scope`: 查询范围，管理员为 `all`，代理为 `downline`。
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 403 - 权限不足**:
+  ```json
+  {
+    "code": 403,
+    "message": "无权访问",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "获取用户列表失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+---
+
+### 5. 用户退出登录
 
 **端点**: `POST /user/logout`
 
@@ -485,7 +584,7 @@ curl -X POST https://rewriting.congrongtech.cn/user/logout \
 
 ---
 
-### 5. 用户修改密码
+### 6. 用户修改密码
 
 **端点**: `POST /user/change-password`
 
@@ -610,7 +709,7 @@ curl -X POST https://rewriting.congrongtech.cn/user/change-password \
 
 ---
 
-### 6. 提交降重或降AI率任务
+### 7. 提交降重或降AI率任务
 
 **端点**: `POST /ai/reduce-task`
 
@@ -773,7 +872,7 @@ curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
 
 ---
 
-### 7. 查询任务结果
+### 8. 查询任务结果
 
 **端点**: `POST /ai/result`
 
@@ -965,7 +1064,7 @@ CHEEYUAN服务失败响应:
 
 ---
 
-### 8. 查询用户积分
+### 9. 查询用户积分
 
 **端点**: `POST /ai/points`
 
@@ -1038,7 +1137,7 @@ curl -X POST https://rewriting.congrongtech.cn/ai/points \
 
 ---
 
-### 9. 查询积分余额
+### 10. 查询积分余额
 
 **端点**: `GET /points/balance`
 
@@ -1110,7 +1209,7 @@ curl -X GET https://rewriting.congrongtech.cn/points/balance \
 
 ---
 
-### 10. 查询积分交易记录
+### 11. 查询积分交易记录
 
 **端点**: `GET /points/transactions`
 
@@ -1298,7 +1397,7 @@ curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=
 
 ---
 
-### 11. 积分返还申请
+### 12. 积分返还申请
 
 **端点**: `POST /points/refund`
 
