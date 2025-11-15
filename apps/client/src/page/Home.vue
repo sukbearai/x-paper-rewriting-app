@@ -421,6 +421,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  background: #fff;
 }
 
 .right-sidebar {
@@ -429,6 +430,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  background: #fff;
 }
 
 .input-card, .result-card {
@@ -488,55 +490,6 @@ onBeforeUnmount(() => {
 .footer-buttons {
   display: flex;
   gap: 8px;
-}
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  .home-content {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .left-sidebar, .right-sidebar {
-    flex: none;
-    width: 100%;
-  }
-
-  .main-content,
-  .right-sidebar {
-    flex: none;
-    overflow: visible;
-  }
-
-  .input-card,
-  .result-card {
-    flex: none;
-    height: auto;
-  }
-
-  .main-content {
-    min-height: 300px;
-  }
-}
-
-@media (max-width: 768px) {
-  .home-content {
-    padding: 12px 16px;
-  }
-
-  .footer-info {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-
-  .footer-buttons {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .footer-buttons .el-button {
-    width: 100%;
-  }
 }
 
 /* Custom styles for Element Plus integration */

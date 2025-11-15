@@ -182,6 +182,8 @@ function goToRecharge() {
 
 <style>
 #app {
+  min-width: 1240px;
+  min-height: 610px;
   height: 100vh;
   display: flex;
   flex-direction: column;
