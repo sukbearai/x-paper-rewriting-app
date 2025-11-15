@@ -201,6 +201,40 @@ export interface PointsTransactionsQueryParams {
   end_date?: string
 }
 
+export interface RechargeRecordProfile {
+  id: number
+  user_id: string
+  username: string | null
+  email: string | null
+  phone?: string | null
+  role: UserRole
+  invited_by?: number | null
+  invited_by_username?: string | null
+}
+
+export interface RechargeRecord {
+  id: number
+  profile_id: number
+  amount: number
+  balance_after: number
+  description: string | null
+  reference_id?: string | null
+  is_successful: boolean
+  created_at: string
+  profile: RechargeRecordProfile | null
+}
+
+export interface RechargeRecordsResponse {
+  records: RechargeRecord[]
+  pagination: PointsTransactionsPagination
+  scope: UserListScope
+}
+
+export interface RechargeRecordsQueryParams {
+  page?: number
+  limit?: number
+}
+
 export interface RefundPointsPayload {
   transaction_id: number
 }

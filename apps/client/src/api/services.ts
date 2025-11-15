@@ -7,6 +7,8 @@ import type {
   PointsResponse,
   PointsTransactionsQueryParams,
   PointsTransactionsResponse,
+  RechargeRecordsQueryParams,
+  RechargeRecordsResponse,
   RefundPointsPayload,
   RefundPointsResponse,
   RegisterParams,
@@ -105,6 +107,14 @@ export function queryPoints() {
 
 export function queryPointsTransactions(params: PointsTransactionsQueryParams = {}) {
   return request<PointsTransactionsResponse>('/points/transactions', {
+    method: 'get',
+    headers: { 'Content-Type': 'application/json' },
+    params,
+  })
+}
+
+export function queryRechargeRecords(params: RechargeRecordsQueryParams = {}) {
+  return request<RechargeRecordsResponse>('/points/recharges', {
     method: 'get',
     headers: { 'Content-Type': 'application/json' },
     params,

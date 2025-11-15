@@ -4,11 +4,12 @@ import { storeToRefs } from 'pinia'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import DragTable from '@/components/drag-table.vue'
-import type { UserListItem, UserRole } from '@/api/interface'
-import { queryUserList, updateUserRole } from '@/api/services'
+import type { RechargeRecord, UserListItem, UserRole } from '@/api/interface'
+import { queryRechargeRecords, queryUserList, updateUserRole } from '@/api/services'
 import { useAuthStore } from '@/store/auth'
 
-type TabKey = 'users' | 'transfers'
+type TabKey = 'users' | 'recharges'
+type RechargeScope = 'all' | 'downline'
 
 const DEFAULT_PAGE_SIZE = 10
 
@@ -28,6 +29,8 @@ const { user: currentUser, isAuthenticated } = storeToRefs(authStore)
 
 const activeTab = ref<TabKey>('users')
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
+const isAgent = computed(() => currentUser.value?.role === 'agent')
+const canViewRecharges = computed(() => isAdmin.value || isAgent.value)
 const roleUpdating = ref<Record<string, boolean>>({})
 
 const roleOptions: Array<{ label: string, value: UserRole }> = [
@@ -40,6 +43,13 @@ const roleLabelMap: Record<UserRole, string> = {
   admin: '管理员',
   agent: '代理',
   user: '普通用户',
+}
+
+function resolveRoleLabel(role?: string | null) {
+  if (!role)
+    return roleLabelMap.user
+  const normalized = role.toLowerCase() as UserRole
+  return roleLabelMap[normalized] ?? role
 }
 
 // 用户列表
@@ -172,58 +182,118 @@ function formatDate(value?: string | null) {
   return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : value
 }
 
-// 模拟转账记录
-const transfersColumns = ref([
-  { prop: 'toUser', label: '转账给用户' },
-  { prop: 'remark', label: '备注' },
-  { prop: 'createdAt', label: '创建时间' },
-])
+function formatPoints(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value))
+    return '0.000'
 
-function getTransfersData() {
-  // getTransfers(transfersPage.value.pageNum, transfersPage.value.pageSize).then((res) => {
-  //   transfersData.value = res.data
-  //   transfersPage.value.total = res.total
-  // })
+  const numeric = Number(value)
+  if (Number.isNaN(numeric))
+    return '0.000'
+
+  const factor = 1000
+  const truncated = numeric >= 0
+    ? Math.floor(numeric * factor) / factor
+    : Math.ceil(numeric * factor) / factor
+  return truncated.toFixed(3)
 }
 
-const transfersPage = ref<PaginationState>({
-  total: 2,
+// 充值记录
+const rechargesLoading = ref(false)
+const rechargesRequestId = ref(0)
+const rechargesColumns = ref([
+  { prop: 'id', label: '记录ID', width: 100 },
+  { prop: 'username', label: '充值用户', minWidth: 160, slot: 'username' },
+  { prop: 'user_id', label: '用户ID', minWidth: 220, slot: 'user_id' },
+  { prop: 'email', label: '邮箱', minWidth: 200, slot: 'email' },
+  { prop: 'phone', label: '手机号', minWidth: 160, slot: 'phone' },
+  { prop: 'role', label: '角色', width: 120, slot: 'profile_role' },
+  { prop: 'inviter', label: '邀请人', minWidth: 160, slot: 'inviter' },
+  { prop: 'amount', label: '充值积分', minWidth: 140, slot: 'amount' },
+  { prop: 'balance_after', label: '变动后余额', minWidth: 140, slot: 'balance' },
+  { prop: 'description', label: '备注', minWidth: 220, slot: 'description' },
+  { prop: 'status', label: '状态', width: 120, slot: 'status' },
+  { prop: 'created_at', label: '充值时间', minWidth: 180, slot: 'created_at' },
+])
+const rechargesData = ref<RechargeRecord[]>([])
+const rechargesPage = ref<PaginationState>({
+  total: 0,
   pageNum: 1,
   pageSize: DEFAULT_PAGE_SIZE,
 })
+const rechargeScope = ref<RechargeScope | null>(null)
 
-function handleTransfersPageChange(payload: PageChangePayload) {
+const rechargeScopeLabel = computed(() => {
+  if (!canViewRecharges.value)
+    return '无权限'
+  if (!rechargeScope.value)
+    return isAdmin.value ? '全部充值记录' : '下级充值记录'
+  return rechargeScope.value === 'all' ? '全部充值记录' : '下级充值记录'
+})
+
+function resetRechargesState() {
+  rechargesData.value = []
+  rechargesPage.value.total = 0
+  rechargesPage.value.pageNum = 1
+  rechargesPage.value.pageSize = DEFAULT_PAGE_SIZE
+  rechargesRequestId.value = 0
+  rechargesLoading.value = false
+  rechargeScope.value = null
+}
+
+async function getRechargesData() {
+  if (!isAuthenticated.value || !canViewRecharges.value) {
+    resetRechargesState()
+    return
+  }
+
+  const requestId = rechargesRequestId.value + 1
+  rechargesRequestId.value = requestId
+  rechargesLoading.value = true
+
+  try {
+    const response = await queryRechargeRecords({
+      page: rechargesPage.value.pageNum,
+      limit: rechargesPage.value.pageSize,
+    })
+
+    if (rechargesRequestId.value !== requestId)
+      return
+
+    rechargesData.value = response?.records ?? []
+    rechargesPage.value.total = response?.pagination?.total ?? rechargesData.value.length
+    rechargeScope.value = response?.scope ?? null
+  }
+  catch {
+    if (rechargesRequestId.value !== requestId)
+      return
+
+    rechargesData.value = []
+    rechargesPage.value.total = 0
+    rechargeScope.value = null
+  }
+  finally {
+    if (rechargesRequestId.value === requestId)
+      rechargesLoading.value = false
+  }
+}
+
+function handleRechargesPageChange(payload: PageChangePayload) {
   if (!payload?.page)
     return
 
-  transfersPage.value.pageNum = payload.page
-  transfersPage.value.pageSize = payload.size
-  getTransfersData()
+  rechargesPage.value.pageNum = payload.page
+  rechargesPage.value.pageSize = payload.size
+  getRechargesData()
 }
 
-function handleTransfersSizeChange(payload: PageChangePayload) {
+function handleRechargesSizeChange(payload: PageChangePayload) {
   if (!payload?.size)
     return
 
-  transfersPage.value.pageSize = payload.size
-  transfersPage.value.pageNum = payload.page
-  getTransfersData()
+  rechargesPage.value.pageSize = payload.size
+  rechargesPage.value.pageNum = payload.page
+  getRechargesData()
 }
-
-const transfersData = ref([
-  {
-    id: 6079,
-    toUser: 'scott',
-    remark: '您从付费账户已支付1000元为用户scott充值1000元',
-    createdAt: '2025-09-24 10:42:01',
-  },
-  {
-    id: 6078,
-    toUser: 'Zxriwzy',
-    remark: '您从付费账户已支付500元为用户Zxriwzy充值500元',
-    createdAt: '2025-09-24 10:40:33',
-  },
-])
 
 watch(
   isAuthenticated,
@@ -235,11 +305,14 @@ watch(
       usersPage.value.pageSize = DEFAULT_PAGE_SIZE
       usersRequestId.value = 0
       usersLoading.value = false
+      resetRechargesState()
       return
     }
 
     if (activeTab.value === 'users')
       getUsersData()
+    if (activeTab.value === 'recharges' && canViewRecharges.value)
+      getRechargesData()
   },
   { immediate: true },
 )
@@ -247,6 +320,21 @@ watch(
 watch(activeTab, (tab) => {
   if (tab === 'users')
     getUsersData()
+  else if (tab === 'recharges' && canViewRecharges.value)
+    getRechargesData()
+})
+
+watch(() => currentUser.value?.role, () => {
+  if (!isAuthenticated.value)
+    return
+
+  if (!canViewRecharges.value) {
+    resetRechargesState()
+    return
+  }
+
+  if (activeTab.value === 'recharges')
+    getRechargesData()
 })
 </script>
 
@@ -279,7 +367,9 @@ watch(activeTab, (tab) => {
             >
               <el-option v-for="item in roleOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-            <el-tag v-else>{{ roleLabelMap[row.role] ?? row.role }}</el-tag>
+            <el-tag v-else>
+              {{ roleLabelMap[row.role] ?? row.role }}
+            </el-tag>
           </template>
           <template #created_at="{ row }">
             {{ formatDate(row.created_at) }}
@@ -287,19 +377,71 @@ watch(activeTab, (tab) => {
         </DragTable>
       </el-tab-pane>
 
-      <el-tab-pane label="转账记录" name="transfers">
-        <DragTable
-          height="70vh"
-          :data="{ name: 'transfers', data: transfersData }"
-          :columns="transfersColumns"
-          border
-          :show-pagination="true"
-          :total="transfersPage.total"
-          :page-size="transfersPage.pageSize"
-          :page-num="transfersPage.pageNum"
-          @page-num-change="handleTransfersPageChange"
-          @page-size-change="handleTransfersSizeChange"
-        />
+      <el-tab-pane label="充值记录" name="recharges">
+        <template v-if="canViewRecharges">
+          <div class="scope-tip">
+            当前范围：{{ rechargeScopeLabel }}
+          </div>
+          <DragTable
+            height="70vh"
+            :data="{ name: 'recharges', data: rechargesData }"
+            :columns="rechargesColumns"
+            :loading="rechargesLoading"
+            border
+            :show-pagination="true"
+            :total="rechargesPage.total"
+            :page-size="rechargesPage.pageSize"
+            :page-num="rechargesPage.pageNum"
+            @page-num-change="handleRechargesPageChange"
+            @page-size-change="handleRechargesSizeChange"
+          >
+            <template #username="{ row }">
+              {{ row.profile?.username ?? '--' }}
+            </template>
+            <template #user_id="{ row }">
+              {{ row.profile?.user_id ?? '--' }}
+            </template>
+            <template #email="{ row }">
+              {{ row.profile?.email ?? '--' }}
+            </template>
+            <template #phone="{ row }">
+              {{ row.profile?.phone ?? '--' }}
+            </template>
+            <template #profile_role="{ row }">
+              <el-tag size="small" effect="plain">
+                {{ resolveRoleLabel(row.profile?.role ?? null) }}
+              </el-tag>
+            </template>
+            <template #inviter="{ row }">
+              {{ row.profile?.invited_by_username ?? '--' }}
+            </template>
+            <template #amount="{ row }">
+              <span :class="row.amount >= 0 ? 'amount-positive' : 'amount-negative'">
+                {{ formatPoints(row.amount) }}
+              </span>
+            </template>
+            <template #balance="{ row }">
+              {{ formatPoints(row.balance_after) }}
+            </template>
+            <template #description="{ row }">
+              <span class="text-muted">{{ row.description || '--' }}</span>
+              <span v-if="row.reference_id" class="reference-hint">
+                ({{ row.reference_id }})
+              </span>
+            </template>
+            <template #status="{ row }">
+              <el-tag :type="row.is_successful ? 'success' : 'warning'" size="small">
+                {{ row.is_successful ? '成功' : '失败' }}
+              </el-tag>
+            </template>
+            <template #created_at="{ row }">
+              {{ formatDate(row.created_at) }}
+            </template>
+          </DragTable>
+        </template>
+        <div v-else class="recharge-empty-hint">
+          仅管理员或代理可查看充值记录
+        </div>
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -312,5 +454,34 @@ watch(activeTab, (tab) => {
 }
 :deep(.el-tabs){
   height: 100%;
+}
+.scope-tip {
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+.recharge-empty-hint {
+  height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+  padding: 0 12px;
+}
+.amount-positive {
+  color: #16a34a;
+}
+.amount-negative {
+  color: #dc2626;
+}
+.text-muted {
+  color: #6b7280;
+}
+.reference-hint {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #9ca3af;
 }
 </style>

@@ -21,6 +21,11 @@ const pointsTransactionsSchema = z.object({
   transaction_type: z.enum(['recharge', 'spend', 'transfer']).optional(),
 })
 
+const rechargeRecordsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1, '页码必须大于0').default(1),
+  limit: z.coerce.number().int().min(1, '每页数量必须大于0').max(100, '每页数量不能超过100').default(20),
+})
+
 const refundRequestSchema = z.object({
   transaction_id: z.number().int('交易ID必须为整数').positive('交易ID必须大于0'),
 })
@@ -177,6 +182,234 @@ points.get('/transactions', authMiddleware, async (c) => {
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+points.get('/recharges', authMiddleware, async (c) => {
+  try {
+    const userId = c.get('userId')
+    const username = c.get('username')
+    const roleRaw = c.get('role')
+
+    const role = typeof roleRaw === 'string' ? roleRaw.toLowerCase() : ''
+
+    console.log(`[points:recharges] 用户 ${username}(${userId}) 角色 ${role} 查询充值记录`)
+
+    if (!['admin', 'agent'].includes(role))
+      return c.json(createErrorResponse('无权访问充值记录', 403), 403)
+
+    const pageParam = c.req.query('page')
+    const limitParam = c.req.query('limit')
+
+    const parsed = rechargeRecordsQuerySchema.safeParse({
+      page: pageParam,
+      limit: limitParam,
+    })
+
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { page, limit } = parsed.data
+    const adminSupabase = createSupabaseAdminClient(c.env)
+
+    let targetProfileIds: number[] | null = null
+    const scope: 'all' | 'downline' = role === 'admin' ? 'all' : 'downline'
+
+    if (role === 'agent') {
+      const { data: agentProfile, error: agentProfileError } = await adminSupabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      if (agentProfileError || !agentProfile) {
+        console.error('[points:recharges] 获取代理档案失败:', agentProfileError)
+        return c.json(createErrorResponse('用户档案不存在', 404), 404)
+      }
+
+      const { data: downlineProfiles, error: downlineError } = await adminSupabase
+        .from('profiles')
+        .select('id')
+        .eq('invited_by', agentProfile.id)
+
+      if (downlineError) {
+        console.error('[points:recharges] 查询下级用户失败:', downlineError)
+        return c.json(createErrorResponse('获取下级用户失败', 500), 500)
+      }
+
+      const downlineIds = (downlineProfiles || [])
+        .map(profile => profile.id)
+        .filter((id): id is number => typeof id === 'number')
+
+      if (downlineIds.length === 0) {
+        return c.json(createSuccessResponse({
+          records: [],
+          pagination: {
+            current_page: page,
+            per_page: limit,
+            total: 0,
+            total_pages: 0,
+            has_next_page: false,
+            has_prev_page: page > 1,
+          },
+          scope,
+        }, '查询充值记录成功'))
+      }
+
+      targetProfileIds = downlineIds
+    }
+
+    let countQuery = adminSupabase
+      .from('points_transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('transaction_type', 'recharge')
+
+    if (targetProfileIds && targetProfileIds.length > 0)
+      countQuery = countQuery.in('profile_id', targetProfileIds)
+
+    const { count, error: countError } = await countQuery
+
+    if (countError) {
+      console.error('[points:recharges] 查询充值记录总数失败:', countError)
+      return c.json(createErrorResponse('查询充值记录失败', 500), 500)
+    }
+
+    let transactionsQuery = adminSupabase
+      .from('points_transactions')
+      .select('id, profile_id, amount, balance_after, description, reference_id, is_successful, created_at')
+      .eq('transaction_type', 'recharge')
+      .order('created_at', { ascending: false })
+
+    if (targetProfileIds && targetProfileIds.length > 0)
+      transactionsQuery = transactionsQuery.in('profile_id', targetProfileIds)
+
+    const offset = (page - 1) * limit
+    const { data: transactions, error: transactionsError } = await transactionsQuery
+      .range(offset, offset + limit - 1)
+
+    if (transactionsError) {
+      console.error('[points:recharges] 查询充值记录失败:', transactionsError)
+      return c.json(createErrorResponse('查询充值记录失败', 500), 500)
+    }
+
+    const profileIds = Array.from(new Set(
+      (transactions || [])
+        .map(item => item.profile_id)
+        .filter((id): id is number => typeof id === 'number'),
+    ))
+
+    interface ProfileSummary {
+      id: number
+      user_id: string
+      username: string | null
+      email: string | null
+      phone: string | null
+      role: 'admin' | 'agent' | 'user'
+      invited_by: number | null
+      invited_by_username: string | null
+    }
+
+    const profileMap: Record<number, ProfileSummary> = {}
+
+    if (profileIds.length > 0) {
+      const { data: profiles, error: profilesError } = await adminSupabase
+        .from('profiles')
+        .select('id, user_id, username, email, phone, role, invited_by')
+        .in('id', profileIds)
+
+      if (profilesError) {
+        console.error('[points:recharges] 查询用户档案失败:', profilesError)
+      }
+      else {
+        const inviterIds = Array.from(new Set(
+          (profiles || [])
+            .map(profile => profile.invited_by)
+            .filter((inviterId): inviterId is number => typeof inviterId === 'number'),
+        ))
+
+        let inviterUsernameMap: Record<number, string | null> = {}
+
+        if (inviterIds.length > 0) {
+          const { data: inviters, error: inviterError } = await adminSupabase
+            .from('profiles')
+            .select('id, username')
+            .in('id', inviterIds)
+
+          if (inviterError) {
+            console.error('[points:recharges] 查询邀请人用户名失败:', inviterError)
+          }
+          else {
+            inviterUsernameMap = (inviters || []).reduce<Record<number, string | null>>((acc, item) => {
+              acc[item.id as number] = item.username ?? null
+              return acc
+            }, {})
+          }
+        }
+
+        (profiles || []).forEach((profile) => {
+          if (typeof profile.id !== 'number')
+            return
+
+          const normalizedRole = typeof profile.role === 'string'
+            ? profile.role.toLowerCase()
+            : 'user'
+
+          const roleValue: 'admin' | 'agent' | 'user' = ['admin', 'agent', 'user'].includes(normalizedRole)
+            ? normalizedRole as 'admin' | 'agent' | 'user'
+            : 'user'
+
+          profileMap[profile.id] = {
+            id: profile.id,
+            user_id: profile.user_id,
+            username: profile.username ?? null,
+            email: profile.email ?? null,
+            phone: profile.phone ?? null,
+            role: roleValue,
+            invited_by: typeof profile.invited_by === 'number' ? profile.invited_by : null,
+            invited_by_username: typeof profile.invited_by === 'number'
+              ? inviterUsernameMap[profile.invited_by] ?? null
+              : null,
+          }
+        })
+      }
+    }
+
+    const records = (transactions || []).map(transaction => ({
+      id: transaction.id,
+      profile_id: transaction.profile_id,
+      amount: transaction.amount,
+      balance_after: transaction.balance_after,
+      description: transaction.description,
+      reference_id: transaction.reference_id,
+      is_successful: transaction.is_successful,
+      created_at: transaction.created_at,
+      profile: typeof transaction.profile_id === 'number' ? profileMap[transaction.profile_id] ?? null : null,
+    }))
+
+    const total = count || 0
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0
+    const hasNextPage = totalPages > 0 && page < totalPages
+    const hasPrevPage = page > 1
+
+    return c.json(createSuccessResponse({
+      records,
+      pagination: {
+        current_page: page,
+        per_page: limit,
+        total,
+        total_pages: totalPages,
+        has_next_page: hasNextPage,
+        has_prev_page: hasPrevPage,
+      },
+      scope,
+    }, '查询充值记录成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.error('[points:recharges] 查询充值记录异常:', err)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })
