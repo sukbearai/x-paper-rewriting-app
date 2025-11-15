@@ -1037,3 +1037,263 @@ curl -X POST https://rewriting.congrongtech.cn/ai/points \
 - 失败任务的积分不会自动退还，但对应的交易记录会被标记为失败(is_successful=false)
 
 ---
+
+### 9. 查询积分余额
+
+**端点**: `GET /points/balance`
+
+**描述**: 查询当前用户的积分余额。需要用户登录认证。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`，通过用户登录接口获取
+
+**cURL 示例**:
+```bash
+curl -X GET https://rewriting.congrongtech.cn/points/balance \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "查询积分余额成功",
+  "data": {
+    "points_balance": 1500
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "用户信息不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "服务器内部错误",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+---
+
+### 10. 查询积分交易记录
+
+**端点**: `GET /points/transactions`
+
+**描述**: 查询当前用户的积分交易记录，支持分页和筛选。需要用户登录认证。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**查询参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`，通过用户登录接口获取
+- `page` (可选): 页码，默认为1，必须大于0
+- `limit` (可选): 每页数量，默认为20，最大100，必须大于0
+- `transaction_type` (可选): 交易类型筛选，支持 `recharge`（充值）、`spend`（消费）、`transfer`（转账）
+- `start_date` (可选): 开始日期，ISO格式时间戳，如 `2023-12-01T00:00:00.000Z`
+- `end_date` (可选): 结束日期，ISO格式时间戳，如 `2023-12-31T23:59:59.999Z`
+
+**cURL 示例**:
+```bash
+# 基础查询
+curl -X GET "https://rewriting.congrongtech.cn/points/transactions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 分页查询
+curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=2&limit=10" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 按交易类型筛选
+curl -X GET "https://rewriting.congrongtech.cn/points/transactions?transaction_type=spend" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 按时间范围筛选
+curl -X GET "https://rewriting.congrongtech.cn/points/transactions?start_date=2023-12-01T00:00:00.000Z&end_date=2023-12-31T23:59:59.999Z" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 复合查询
+curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=20&transaction_type=spend&start_date=2023-12-01T00:00:00.000Z" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "查询积分交易记录成功",
+  "data": {
+    "transactions": [
+      {
+        "id": 1,
+        "profile_id": 123,
+        "transaction_type": "spend",
+        "amount": -3.6,
+        "balance_after": 146.4,
+        "description": "AI降重任务消费",
+        "reference_id": "onlyjc_98631379_1758017276712",
+        "is_successful": true,
+        "created_at": "2023-12-01T10:30:00.000Z"
+      },
+      {
+        "id": 2,
+        "profile_id": 123,
+        "transaction_type": "recharge",
+        "amount": 100,
+        "balance_after": 150,
+        "description": "管理员充值",
+        "reference_id": "admin_topup_001",
+        "is_successful": true,
+        "created_at": "2023-12-01T09:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 20,
+      "total": 25,
+      "total_pages": 2,
+      "has_next_page": true,
+      "has_prev_page": false
+    }
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**响应字段说明**:
+- `transactions`: 交易记录数组
+  - `id`: 交易记录ID
+  - `profile_id`: 用户档案ID
+  - `transaction_type`: 交易类型（recharge/spend/transfer）
+  - `amount`: 交易金额（正数为收入，负数为支出）
+  - `balance_after`: 交易后的余额
+  - `description`: 交易描述
+  - `reference_id`: 关联的参考ID（如任务ID）
+  - `is_successful`: 交易是否成功
+  - `created_at`: 创建时间
+- `pagination`: 分页信息
+  - `current_page`: 当前页码
+  - `per_page`: 每页数量
+  - `total`: 总记录数
+  - `total_pages`: 总页数
+  - `has_next_page`: 是否有下一页
+  - `has_prev_page`: 是否有上一页
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 400 - 请求参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "页码必须大于0",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "每页数量不能超过100",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "开始日期格式不正确",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "用户信息不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "查询交易记录总数失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 500,
+    "message": "查询交易记录失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- 用户只能查询自己的积分交易记录
+- 交易记录按创建时间倒序排列（最新的在前）
+- 支持按交易类型和时间范围进行筛选
+- 分页查询可以提高大数据量时的查询性能
+- 交易金额正数表示收入，负数表示支出
+
+---

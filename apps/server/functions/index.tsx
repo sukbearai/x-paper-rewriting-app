@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 // import { ipRestriction } from 'hono/ip-restriction';
 import { externalTokenMiddleware } from './middleware/external-tokens'
-import { ai, otp, sms, user } from './routers/index'
+import { ai, otp, points, sms, user } from './routers/index'
 
 const app = new Hono().basePath('/')
 
@@ -22,6 +22,7 @@ app.route('/user', user)
 app.route('/sms', sms)
 app.route('/otp', otp)
 app.route('/ai', ai)
+app.route('/points', points)
 
 // IP restriction middleware (optional)
 // app.use(
