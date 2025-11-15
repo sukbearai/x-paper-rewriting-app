@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
             <div class="card-footer">
               <div class="footer-info">
                 <span>当前字数：{{ charCount }}</span>
-                <span>当前积分：{{ currentPoints.toFixed(1) }}</span>
+                <span>当前积分：{{ truncatedCurrentPoints }}</span>
                 <span>预计消耗：{{ estimatedCost.toFixed(3) }}积分</span>
               </div>
               <div class="footer-buttons">
