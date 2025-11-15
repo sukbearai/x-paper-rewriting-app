@@ -85,7 +85,7 @@ const props = withDefaults(defineProps<Props>(), {
   pageNum: 1,
   pageSize: 10,
   pagerCount: 7,
-  pageSizeOptions: () => [10, 30, 50, 100, 500],
+  pageSizeOptions: () => [10, 30, 50, 100],
   drag: false,
   rowKey: 'id',
   id: 'id',

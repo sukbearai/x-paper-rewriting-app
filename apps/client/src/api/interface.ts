@@ -152,6 +152,15 @@ export interface PointsTransactionsQueryParams {
   end_date?: string
 }
 
+export interface RefundPointsPayload {
+  transaction_id: number
+}
+
+export interface RefundPointsResponse {
+  success: boolean
+  points_balance?: number
+}
+
 // 表单数据
 export interface LoginOtpForm {
   phone: string

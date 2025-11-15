@@ -7,6 +7,8 @@ import type {
   PointsResponse,
   PointsTransactionsQueryParams,
   PointsTransactionsResponse,
+  RefundPointsPayload,
+  RefundPointsResponse,
   RegisterParams,
   RegisterResponse,
   SmsCodeParams,
@@ -94,5 +96,14 @@ export function queryPointsTransactions(params: PointsTransactionsQueryParams = 
     method: 'get',
     headers: { 'Content-Type': 'application/json' },
     params,
+  })
+}
+
+export function refundPointsTransaction(transactionId: number) {
+  const payload: RefundPointsPayload = { transaction_id: transactionId }
+  return request<RefundPointsResponse>('/points/refund', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data: payload,
   })
 }

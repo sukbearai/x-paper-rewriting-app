@@ -2,11 +2,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { TrendCharts, Wallet } from '@element-plus/icons-vue'
+import dayjs from 'dayjs'
 import { useRequest } from 'vue-hooks-plus'
 import { useAuthStore } from '@/store/auth'
 import DragTable from '@/components/drag-table.vue'
 import type { PointsTransaction } from '@/api/interface'
-import { queryPointsTransactions } from '@/api/services'
+import { queryPointsTransactions, refundPointsTransaction } from '@/api/services'
 
 const authStore = useAuthStore()
 
@@ -14,6 +15,7 @@ const authStore = useAuthStore()
 const amount = ref('')
 const activeTab = ref<'points' | 'recharge' | 'spend'>('points') // 默认显示积分页面
 const tableLoading = ref(false)
+const refundLoading = reactive<Record<number, boolean>>({})
 
 type TransactionTab = 'recharge' | 'spend'
 
@@ -68,17 +70,19 @@ const rechargeColumns = [
   { prop: 'amount', label: '积分变动', width: 120, slot: 'amount' },
   { prop: 'balance_after', label: '变动后余额', width: 140, slot: 'balance' },
   { prop: 'description', label: '备注', minWidth: 280, slot: 'description' },
-  { prop: 'is_successful', label: '状态', width: 100, slot: 'status' },
-  { prop: 'created_at', label: '创建时间', width: 180 },
+  { prop: 'is_successful', label: '状态', minWidth: 200, slot: 'status' },
+  { prop: 'created_at', label: '创建时间', width: 200, slot: 'createdAt' },
 ]
+
+const DATE_TIME_FORMAT = 'YYYY-MM-DD HH:mm:ss'
 
 const spendColumns = [
   { prop: 'id', label: 'ID', width: 80 },
   { prop: 'amount', label: '消耗积分', width: 120, slot: 'amount' },
   { prop: 'balance_after', label: '变动后余额', width: 140, slot: 'balance' },
   { prop: 'description', label: '说明', minWidth: 280, slot: 'description' },
-  { prop: 'is_successful', label: '状态', width: 100, slot: 'status' },
-  { prop: 'created_at', label: '创建时间', width: 180 },
+  { prop: 'is_successful', label: '状态', minWidth: 200, slot: 'status' },
+  { prop: 'created_at', label: '创建时间', width: 200, slot: 'createdAt' },
 ]
 
 function formatPointsValue(value: number | string | null | undefined) {
@@ -110,12 +114,43 @@ async function fetchTransactions(type: TransactionTab) {
     tableState[type].list = response.transactions ?? []
     tableState[type].total = response.pagination?.total ?? 0
   }
+  // eslint-disable-next-line unused-imports/no-unused-vars
   catch (error) {
     tableState[type].list = []
     tableState[type].total = 0
   }
   finally {
     tableLoading.value = false
+  }
+}
+
+async function handleRefund(transaction: PointsTransaction) {
+  if (!transaction || transaction.is_successful)
+    return
+
+  const key = transaction.id
+  if (refundLoading[key])
+    return
+
+  refundLoading[key] = true
+  try {
+    const result = await refundPointsTransaction(transaction.id)
+    if (result?.success)
+      ElMessage.success('积分已返还')
+    else
+      ElMessage.warning('返还状态未知，请稍后刷新')
+
+    if (authStore.isAuthenticated)
+      await fetchPoints()
+
+    if (transaction.transaction_type === 'recharge' || transaction.transaction_type === 'spend')
+      await fetchTransactions(transaction.transaction_type)
+  }
+  catch {
+    ElMessage.error('积分返还失败，请稍后重试')
+  }
+  finally {
+    refundLoading[key] = false
   }
 }
 
@@ -346,12 +381,26 @@ onMounted(() => {
               <span class="text-gray-600">{{ row.description || '--' }}</span>
             </template>
             <template #status="{ row }">
-              <el-tag
-                size="small"
-                :type="row.is_successful ? 'success' : 'danger'"
-              >
-                {{ row.is_successful ? '成功' : '失败' }}
-              </el-tag>
+              <div class="flex items-center gap-2">
+                <el-tag
+                  size="small"
+                  :type="row.is_successful ? 'success' : 'danger'"
+                >
+                  {{ row.is_successful ? '成功' : '失败' }}
+                </el-tag>
+                <el-button
+                  v-if="!row.is_successful && row.transaction_type === 'spend'"
+                  size="small"
+                  type="text"
+                  :loading="refundLoading[row.id]"
+                  @click="handleRefund(row)"
+                >
+                  返还积分
+                </el-button>
+              </div>
+            </template>
+            <template #createdAt="{ row }">
+              {{ dayjs(row.created_at).isValid() ? dayjs(row.created_at).format(DATE_TIME_FORMAT) : '--' }}
             </template>
           </DragTable>
         </el-tab-pane>
@@ -381,12 +430,26 @@ onMounted(() => {
               <span class="text-gray-600">{{ row.description || '--' }}</span>
             </template>
             <template #status="{ row }">
-              <el-tag
-                size="small"
-                :type="row.is_successful ? 'success' : 'danger'"
-              >
-                {{ row.is_successful ? '成功' : '失败' }}
-              </el-tag>
+              <div class="flex items-center gap-2">
+                <el-tag
+                  size="small"
+                  :type="row.is_successful ? 'success' : 'danger'"
+                >
+                  {{ row.is_successful ? '成功' : '失败' }}
+                </el-tag>
+                <el-button
+                  v-if="!row.is_successful && row.transaction_type === 'spend'"
+                  type="text"
+                  size="small"
+                  :loading="refundLoading[row.id]"
+                  @click="handleRefund(row)"
+                >
+                  返还积分
+                </el-button>
+              </div>
+            </template>
+            <template #createdAt="{ row }">
+              {{ dayjs(row.created_at).isValid() ? dayjs(row.created_at).format(DATE_TIME_FORMAT) : '--' }}
             </template>
           </DragTable>
         </el-tab-pane>
