@@ -454,6 +454,7 @@ curl -X GET https://rewriting.congrongtech.cn/user/list \
         "points_balance": 120,
         "invite_code": "INV001",
         "invited_by": null,
+        "invited_by_username": null,
         "created_at": "2023-12-01T10:00:00.000Z"
       }
     ],
@@ -466,6 +467,7 @@ curl -X GET https://rewriting.congrongtech.cn/user/list \
 
 **响应字段说明**:
 - `users`: 用户数组，字段包含 `id`、`user_id`、`username`、`email`、`phone`、`role`、`points_balance`、`invite_code`、`invited_by`、`created_at`。
+  - 每个用户对象新增字段 `invited_by_username`，用于展示邀请人的用户名（若无邀请人则为 `null`）。
 - `total`: 返回的用户数量。
 - `scope`: 查询范围，管理员为 `all`，代理为 `downline`。
 
