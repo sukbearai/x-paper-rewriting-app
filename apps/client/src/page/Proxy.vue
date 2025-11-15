@@ -127,32 +127,6 @@ const transfersData = ref([
           @page-size-change="handleTransfersSizeChange"
         />
       </el-tab-pane>
-
-      <el-tab-pane label="代理微信配置" name="wechat">
-        <el-form label-width="120px">
-          <el-form-item label="微信号">
-            <el-input placeholder="请输入微信号" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary">
-              保存
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-tab-pane>
-
-      <el-tab-pane label="代理网站配置" name="website">
-        <el-form label-width="120px">
-          <el-form-item label="网站域名">
-            <el-input placeholder="请输入网站域名" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary">
-              保存
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
