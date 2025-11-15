@@ -67,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
     return response
   }
 
+  // eslint-disable-next-line unicorn/consistent-function-scoping
   async function registerAccount(params: RegisterParams) {
     return registerUser(params)
   }
