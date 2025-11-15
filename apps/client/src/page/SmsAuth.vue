@@ -114,6 +114,8 @@ const { runAsync: registerAsync, loading: registerLoading } = useRequest(authSto
   manual: true,
   onSuccess: () => {
     ElMessage.success('注册成功，请登录')
+    clearCooldownTimer()
+    cooldown.value = 0
     activeName.value = 'login'
     loginOtpForm.phone = registerForm.phone
     loginOtpForm.code = ''
