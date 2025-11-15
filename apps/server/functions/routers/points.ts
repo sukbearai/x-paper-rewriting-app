@@ -114,7 +114,6 @@ points.get('/transactions', authMiddleware, async (c) => {
       query = query.eq('transaction_type', transaction_type)
     }
 
-    // 添加日期范围过滤
     // 获取总数
     let countQuery = supabase
       .from('points_transactions')
