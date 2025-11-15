@@ -30,6 +30,8 @@ CREATE TABLE public.points_transactions (
   balance_after numeric not null,
   description text,
   reference_id text,
+  user_input_file_url text,
+  ai_response_file_url text,
   is_successful boolean default true,
   created_at timestamp with time zone default now()
 );
