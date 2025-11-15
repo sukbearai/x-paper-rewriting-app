@@ -69,6 +69,34 @@ export interface LogoutResponse {
   success: boolean
 }
 
+export type UserRole = 'admin' | 'agent' | 'user'
+
+export interface UserListItem {
+  id: number
+  user_id: number
+  username: string
+  email: string
+  phone?: string | null
+  role: UserRole
+  points_balance: number
+  invite_code?: string | null
+  invited_by?: string | null
+  created_at: string
+}
+
+export type UserListScope = 'all' | 'downline'
+
+export interface UserListResponse {
+  users: UserListItem[]
+  total: number
+  scope: UserListScope
+}
+
+export interface UserListQueryParams {
+  page?: number
+  limit?: number
+}
+
 export interface ChangePasswordParams {
   current_password: string
   new_password: string

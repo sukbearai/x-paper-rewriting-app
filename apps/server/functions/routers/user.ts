@@ -564,6 +564,31 @@ user.get('/list', authMiddleware, async (c) => {
       usersData = (data || []) as ProfileRecord[]
     }
 
+    const inviterIds = Array.from(new Set(
+      usersData
+        .map(item => item.invited_by)
+        .filter((id): id is number => typeof id === 'number'),
+    ))
+
+    let inviterUsernameMap: Record<number, string | null> = {}
+
+    if (inviterIds.length > 0) {
+      const { data: inviterProfiles, error: inviterError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', inviterIds)
+
+      if (inviterError) {
+        console.error('[user:list] 查询邀请人用户名失败:', inviterError)
+      }
+      else {
+        inviterUsernameMap = (inviterProfiles || []).reduce<Record<number, string | null>>((acc, profile) => {
+          acc[profile.id as number] = profile.username ?? null
+          return acc
+        }, {})
+      }
+    }
+
     const users = usersData.map(item => ({
       id: item.id,
       user_id: item.user_id,
@@ -574,6 +599,7 @@ user.get('/list', authMiddleware, async (c) => {
       points_balance: item.points_balance ?? 0,
       invite_code: item.invite_code,
       invited_by: item.invited_by,
+      invited_by_username: typeof item.invited_by === 'number' ? inviterUsernameMap[item.invited_by] ?? null : null,
       created_at: item.created_at,
     }))
 

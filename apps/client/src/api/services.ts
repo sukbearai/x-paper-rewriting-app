@@ -16,6 +16,8 @@ import type {
   SubmitTaskResponse,
   TaskResultData,
   TaskResultParams,
+  UserListQueryParams,
+  UserListResponse,
 } from '@/api/interface'
 
 export function sendSmsCode(data: SmsCodeParams) {
@@ -57,6 +59,14 @@ export function logout(refreshToken?: string) {
       'Content-Type': 'application/json',
       ...(refreshToken ? { refresh_token: refreshToken } : {}),
     },
+  })
+}
+
+export function queryUserList(params: UserListQueryParams = {}) {
+  return request<UserListResponse>('/user/list', {
+    method: 'get',
+    headers: { 'Content-Type': 'application/json' },
+    params,
   })
 }
 
