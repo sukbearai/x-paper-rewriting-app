@@ -14,6 +14,16 @@ const ai = new Hono<{
 // 任务消耗积分配置
 const POINTS_PER_1000_CHARS = 3 // 每1000字消耗3积分
 
+type TaskPlatform = 'zhiwang' | 'weipu'
+type TaskType = 'reduce-plagiarism' | 'reduce-ai-rate'
+
+function resolveTaskLabel(platform: TaskPlatform, type: TaskType): string {
+  if (type === 'reduce-ai-rate')
+    return platform === 'zhiwang' ? '降AI率（知网版）' : '降AI率（维普版）'
+
+  return platform === 'zhiwang' ? '降重（知网版）' : '降重（维普版）'
+}
+
 /**
  * 计算任务积分消耗
  */
@@ -45,7 +55,7 @@ async function getUserPoints(env: DataBaseEnvBindings, userId: string): Promise<
 /**
  * 扣除用户积分并记录交易
  */
-async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number, taskId: string, service: string): Promise<{ success: boolean, newBalance?: number }> {
+async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number, taskId: string, service: string, taskLabel: string): Promise<{ success: boolean, newBalance?: number }> {
   const supabase = createSupabaseAdminClient(env)
 
   // 先查询当前积分
@@ -62,7 +72,7 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
     .single()
 
   if (profileError || !profileData) {
-    console.error('[deductUserPoints] 获取用户档案失败:', profileError)
+    console.error(`[deductUserPoints][${service}] 获取用户档案失败:`, profileError)
     return { success: false }
   }
 
@@ -77,7 +87,7 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
     .eq('user_id', userId)
 
   if (error) {
-    console.error('[deductUserPoints] 扣除积分失败:', error)
+    console.error(`[deductUserPoints][${service}] 扣除积分失败:`, error)
     return { success: false }
   }
 
@@ -89,13 +99,13 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
       transaction_type: 'spend',
       amount: -points,
       balance_after: newBalance,
-      description: `AI降重/降AI率任务消耗 - ${service} - 任务ID: ${taskId}`,
+      description: taskLabel,
       reference_id: taskId,
       is_successful: true, // 初始标记为成功，如果后续任务失败会更新
     })
 
   if (transactionError) {
-    console.error('[deductUserPoints] 记录积分交易失败:', transactionError)
+    console.error(`[deductUserPoints][${service}] 记录积分交易失败:`, transactionError)
     // 交易记录失败不影响积分扣除操作
   }
 
@@ -116,7 +126,7 @@ async function markTaskAsFailed(env: DataBaseEnvBindings, userId: string, taskId
     .single()
 
   if (profileError || !profileData) {
-    console.error('[markTaskAsFailed] 获取用户档案失败:', profileError)
+    console.error(`[markTaskAsFailed][${service}] 获取用户档案失败:`, profileError)
     return
   }
 
@@ -125,14 +135,13 @@ async function markTaskAsFailed(env: DataBaseEnvBindings, userId: string, taskId
     .from('points_transactions')
     .update({
       is_successful: false,
-      description: `AI降重/降AI率任务失败 - ${service} - 任务ID: ${taskId}`,
     })
     .eq('profile_id', profileData.id)
     .eq('reference_id', taskId)
     .eq('transaction_type', 'spend')
 
   if (updateError) {
-    console.error('[markTaskAsFailed] 更新交易记录失败:', updateError)
+    console.error(`[markTaskAsFailed][${service}] 更新交易记录失败:`, updateError)
   }
 }
 
@@ -198,6 +207,10 @@ ai.post('/reduce-task', async (c) => {
       return c.json(createErrorResponse('类型参数错误，必须为reduce-plagiarism或reduce-ai-rate', 400), 400)
     }
 
+    const taskPlatform = platform as TaskPlatform
+    const taskType = type as TaskType
+    const taskLabel = resolveTaskLabel(taskPlatform, taskType)
+
     // 检查用户积分余额
     const userPoints = await getUserPoints(c.env, userId)
     const taskCost = calculateTaskCost(text.length)
@@ -208,7 +221,7 @@ ai.post('/reduce-task', async (c) => {
     }
 
     // 根据平台和类型选择服务
-    const service = platform === 'zhiwang' && type === 'reduce-ai-rate' ? 'cheeyuan' : 'reduceai'
+    const service = taskPlatform === 'zhiwang' && taskType === 'reduce-ai-rate' ? 'cheeyuan' : 'reduceai'
 
     let result: any
 
@@ -254,7 +267,7 @@ ai.post('/reduce-task', async (c) => {
       // REDUCEAI处理知网/维普降重和维普降AI率
       let toolName: string
 
-      if (type === 'reduce-ai-rate') {
+      if (taskType === 'reduce-ai-rate') {
         toolName = 'onlyai' // 仅降AI
       }
       else {
@@ -299,7 +312,7 @@ ai.post('/reduce-task', async (c) => {
     }
 
     // 只有在AI服务成功返回结果后才扣除用户积分
-    const deductResult = await deductUserPoints(c.env, userId, taskCost, result.taskId, service)
+    const deductResult = await deductUserPoints(c.env, userId, taskCost, result.taskId, service, taskLabel)
     if (!deductResult.success) {
       console.error('[ai-reduce-task] 扣除积分失败，但任务已提交成功')
       // 扣除积分失败不应该影响用户的任务结果，记录日志即可
