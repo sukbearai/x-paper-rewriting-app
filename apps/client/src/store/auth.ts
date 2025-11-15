@@ -15,6 +15,7 @@ import {
   loginWithPassword,
   logout as logoutApi,
   queryPoints,
+  refreshSession as refreshSessionApi,
   registerUser,
 } from '@/api/services'
 
@@ -82,6 +83,39 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function attemptRefreshSession() {
+    if (!refreshToken.value)
+      throw new Error('缺少刷新令牌')
+
+    const response = await refreshSessionApi({ refresh_token: refreshToken.value })
+    applySession(response)
+    return response
+  }
+
+  async function restoreSession() {
+    const hasRefreshToken = Boolean(refreshToken.value)
+    const tokenValid = Boolean(accessToken.value) && Boolean(expiresAt.value) && Date.now() < expiresAt.value
+
+    if (!hasRefreshToken) {
+      if (!tokenValid)
+        clearSession()
+      return tokenValid
+    }
+
+    if (tokenValid && user.value)
+      return true
+
+    try {
+      await attemptRefreshSession()
+      return true
+    }
+    catch (error) {
+      console.warn('[auth] restoreSession failed, clearing session', error)
+      clearSession()
+      return false
+    }
+  }
+
   async function fetchPoints() {
     if (!accessToken.value)
       return null
@@ -92,6 +126,7 @@ export const useAuthStore = defineStore('auth', () => {
     return response
   }
 
+  // eslint-disable-next-line unicorn/consistent-function-scoping
   async function changePassword(payload: ChangePasswordParams) {
     await changePasswordApi(payload)
   }
@@ -113,6 +148,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     fetchPoints,
     changePassword,
+    restoreSession,
   }
 }, {
   persist: true,

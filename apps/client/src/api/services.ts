@@ -9,6 +9,7 @@ import type {
   PointsTransactionsResponse,
   RechargeRecordsQueryParams,
   RechargeRecordsResponse,
+  RefreshSessionParams,
   RefundPointsPayload,
   RefundPointsResponse,
   RegisterParams,
@@ -50,6 +51,14 @@ export function loginWithPassword(data: LoginWithPasswordParams) {
 
 export function loginWithOtp(data: LoginWithOtpParams) {
   return request<LoginResponse>('/user/login', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}
+
+export function refreshSession(data: RefreshSessionParams) {
+  return request<LoginResponse>('/user/refresh', {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
     data,

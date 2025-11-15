@@ -137,6 +137,12 @@ const updateUserRoleSchema = z.object({
   ),
 })
 
+const refreshSessionSchema = z.object({
+  refresh_token: z.string()
+    .trim()
+    .min(1, 'refresh_token不能为空'),
+})
+
 // 生成6位随机邀请码
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -261,6 +267,76 @@ user.post('/login', async (c) => {
   }
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+user.post('/refresh', async (c) => {
+  try {
+    let payload: { refresh_token?: string }
+    try {
+      payload = await c.req.json<{ refresh_token?: string }>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = refreshSessionSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { refresh_token } = parsed.data
+    const supabase = createSupabaseClient(c.env)
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({ refresh_token })
+
+    if (refreshError || !refreshData.session || !refreshData.user) {
+      console.error('[user:refresh] 刷新会话失败:', refreshError)
+      return c.json(createErrorResponse('刷新会话失败，请重新登录', 401), 401)
+    }
+
+    const session = refreshData.session
+    const userInfo = refreshData.user
+
+    if (!session.access_token || !session.refresh_token || !session.expires_at) {
+      console.error('[user:refresh] Supabase返回的会话信息不完整')
+      return c.json(createErrorResponse('刷新会话失败，请重新登录', 401), 401)
+    }
+
+    const adminSupabase = createSupabaseAdminClient(c.env)
+    const { data: profile, error: profileError } = await adminSupabase
+      .from('profiles')
+      .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
+      .eq('user_id', userInfo.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.error('[user:refresh] 查询用户档案失败:', profileError)
+      return c.json(createErrorResponse('刷新会话失败，请重新登录', 401), 401)
+    }
+
+    return c.json(createSuccessResponse({
+      user: {
+        id: profile.user_id,
+        username: profile.username,
+        email: profile.email,
+        phone: profile.phone,
+        role: profile.role,
+        points_balance: profile.points_balance,
+        invite_code: profile.invite_code,
+        created_at: profile.created_at,
+      },
+      session: {
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_at: session.expires_at,
+      },
+    }, '刷新会话成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.error('[user:refresh] 刷新会话异常:', err)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })

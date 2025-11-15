@@ -349,7 +349,7 @@ onBeforeUnmount(() => {
               <h3 class="font-medium text-gray-900">
                 结果展示
               </h3>
-              <el-button type="text" :disabled="!outputText" @click="copyToClipboard(outputText)">
+              <el-button type="primary" :disabled="!outputText" @click="copyToClipboard(outputText)">
                 复制结果
               </el-button>
             </div>

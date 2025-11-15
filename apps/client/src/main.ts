@@ -12,19 +12,29 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import router from './router'
 import svgIcon from './components/SvgIcon.vue'
 import App from './App.vue'
+import { useAuthStore } from '@/store/auth'
 
-const pinia = createPinia()
-pinia.use(piniaPluginPersistedstate)
+async function bootstrap() {
+  const app = createApp(App)
+  const pinia = createPinia()
+  pinia.use(piniaPluginPersistedstate)
 
-const app = createApp(App)
-app.use(ElementPlus, { locale: zhCn })
-app.use(router)
-app.use(pinia)
-app.component('svg-icon', svgIcon)
+  app.use(ElementPlus, { locale: zhCn })
+  app.use(pinia)
 
-// 注册所有图标组件
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, component)
+  const authStore = useAuthStore(pinia)
+  await authStore.restoreSession()
+
+  app.use(router)
+  app.component('svg-icon', svgIcon)
+
+  for (const [key, component] of Object.entries(ElementPlusIconsVue))
+    app.component(key, component)
+
+  await router.isReady()
+  app.mount('#app')
 }
 
-app.mount('#app')
+bootstrap().catch((error) => {
+  console.error('[bootstrap] failed to start app', error)
+})

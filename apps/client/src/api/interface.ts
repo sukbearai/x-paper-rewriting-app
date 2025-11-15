@@ -65,6 +65,10 @@ export interface LoginResponse {
   session: SessionInfo
 }
 
+export interface RefreshSessionParams {
+  refresh_token: string
+}
+
 export interface LogoutResponse {
   success: boolean
 }
