@@ -1343,9 +1343,145 @@ curl -X GET https://rewriting.congrongtech.cn/points/balance \
   }
   ```
 
+### 12. 查询充值记录
+
+**端点**: `GET /points/recharges`
+
+**描述**: 查询积分充值记录。仅管理员和代理可用，管理员返回所有用户的充值记录，代理仅返回其邀请的下级用户充值记录。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**查询参数**:
+- `Authorization` (必需): 访问令牌，格式为 `Bearer <token>`，通过用户登录接口获取
+- `page` (可选): 页码，默认为1，必须大于0
+- `limit` (可选): 每页数量，默认为20，最大100，必须大于0
+
+**cURL 示例**:
+```bash
+# 管理员查询全部充值记录
+curl -X GET "https://rewriting.congrongtech.cn/points/recharges?page=1&limit=20" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# 代理查询下级充值记录
+curl -X GET "https://rewriting.congrongtech.cn/points/recharges?page=1&limit=20" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "查询充值记录成功",
+  "data": {
+    "records": [
+      {
+        "id": 101,
+        "profile_id": 456,
+        "amount": 100,
+        "balance_after": 450,
+        "description": "管理员充值",
+        "reference_id": "admin_topup_202401",
+        "is_successful": true,
+        "created_at": "2024-01-18T09:00:00.000Z",
+        "profile": {
+          "id": 456,
+          "user_id": "8f8b2c9e-5a4f-4a38-b9c0-77cbd9c0bb01",
+          "username": "targetuser",
+          "email": "target@example.com",
+          "phone": "+8613800138001",
+          "role": "agent",
+          "invited_by": 123,
+          "invited_by_username": "admin"
+        }
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 20,
+      "total": 5,
+      "total_pages": 1,
+      "has_next_page": false,
+      "has_prev_page": false
+    },
+    "scope": "all"
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**响应字段说明**:
+- `records`: 充值记录数组
+  - `id`: 充值记录ID
+  - `profile_id`: 用户档案ID
+  - `amount`: 充值积分变动（整数或三位小数）
+  - `balance_after`: 充值后的积分余额（保留三位小数，截取而非四舍五入）
+  - `description`: 充值说明或备注
+  - `reference_id`: 关联参考ID（如订单号或返还标识）
+  - `is_successful`: 是否充值成功
+  - `created_at`: 充值时间
+  - `profile`: 充值用户档案信息（包含 `user_id`、`username`、`email`、`phone`、`role`、`invited_by`、`invited_by_username`）
+- `pagination`: 分页信息，同积分交易记录接口
+- `scope`: 查询范围，管理员为 `all`，代理为 `downline`
+
+**错误响应**:
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 403 - 权限不足**:
+  ```json
+  {
+    "code": 403,
+    "message": "无权访问充值记录",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "用户信息不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "查询充值记录失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- 仅管理员 (`admin`) 和代理 (`agent`) 可访问该接口
+- 管理员返回所有用户的充值记录；代理仅返回其邀请的下级用户充值记录
+- 返回的 `profile` 字段可用于在前端展示充值用户及其邀请链信息
+
 ---
 
-### 12. 查询积分交易记录
+### 13. 查询积分交易记录
 
 **端点**: `GET /points/transactions`
 
@@ -1533,7 +1669,7 @@ curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=
 
 ---
 
-### 13. 积分返还申请
+### 14. 积分返还申请
 
 **端点**: `POST /points/refund`
 
