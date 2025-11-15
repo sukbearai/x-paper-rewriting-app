@@ -40,7 +40,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/',
     name: 'Home',
     component: Home,
-    meta: { roles: ['user', 'admin', 'guest'] },
+    meta: { roles: ['user', 'admin', 'agent', 'guest'] },
   },
   {
     path: '/login',
@@ -52,19 +52,19 @@ const routes: Array<RouteRecordRaw> = [
     path: '/proxy',
     name: 'Proxy',
     component: Proxy,
-    meta: { roles: ['user', 'admin', 'guest'] },
+    meta: { roles: ['admin', 'agent'] },
   },
   {
     path: '/userCenter',
     name: 'UserCenter',
     component: UserCenter,
-    meta: { roles: ['user', 'admin', 'guest'] },
+    meta: { roles: ['user', 'admin', 'agent'] },
   },
   {
     path: '/balanceRecharge',
     name: 'BalanceRecharge',
     component: BalanceRecharge,
-    meta: { roles: ['user', 'admin', 'guest'] },
+    meta: { roles: ['user', 'admin', 'agent'] },
   },
 ]
 
@@ -77,6 +77,7 @@ router.beforeEach((to, from, next) => {
   const isLoggedIn = hasValidSession(authState)
   const userRole = authState?.user?.role || localStorage.getItem('userRole') || 'guest'
   const allowedRoles = (to.meta.roles as string[] | undefined) || []
+  const allowsGuest = allowedRoles.includes('guest')
 
   // 如果要去登录页面，且已登录，重定向到首页
   if (to.name === 'Login' && isLoggedIn) {
@@ -85,7 +86,7 @@ router.beforeEach((to, from, next) => {
   }
 
   // 如果未登录且不是登录页面，重定向到登录页
-  if (!isLoggedIn && to.name !== 'Login') {
+  if (!isLoggedIn && to.name !== 'Login' && !allowsGuest) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
     return
   }

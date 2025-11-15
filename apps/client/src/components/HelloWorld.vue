@@ -3,7 +3,8 @@ import { ref } from 'vue'
 
 defineProps<{ msg: string }>()
 
-const count = ref(0)
+const color = ref('#fff')
+const size = `24px`
 </script>
 
 <template>

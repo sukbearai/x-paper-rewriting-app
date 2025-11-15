@@ -13,6 +13,8 @@ const activeMenu = ref('home')
 const isLoggedIn = computed(() => authStore.isAuthenticated)
 const userName = computed(() => authStore.displayName)
 const userPoints = computed(() => authStore.points ?? authStore.user?.points_balance ?? 0)
+const userRole = computed(() => authStore.user?.role || localStorage.getItem('userRole') || 'guest')
+const canAccessProxy = computed(() => isLoggedIn.value && (userRole.value === 'admin' || userRole.value === 'agent'))
 
 watch(
   isLoggedIn,
@@ -78,12 +80,6 @@ function handleMenuSelect(index: string) {
   }
 }
 
-// 登录菜单项点击处理
-function goToLogin() {
-  activeMenu.value = '2'
-  router.push('/login')
-}
-
 function handleLogout() {
   ElMessageBox.confirm(
     '确认要退出登录吗？',
@@ -134,7 +130,7 @@ function goToRecharge() {
         工具
       </el-menu-item>
 
-      <el-menu-item index="proxy">
+      <el-menu-item v-if="canAccessProxy" index="proxy">
         <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === 'proxy' }">
           <WalletFilled />
         </el-icon>

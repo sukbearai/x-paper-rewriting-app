@@ -437,7 +437,7 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  /* min-height: 0; */
   overflow: visible;
 }
 
@@ -446,6 +446,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.result-area {
+  min-height: 360px;
 }
 
 .input-area :deep(.el-textarea) {
@@ -462,7 +466,11 @@ onBeforeUnmount(() => {
 
 .result-area :deep(.el-textarea) {
   flex: 1;
-  min-height: 0;
+  resize: none;
+}
+
+.result-area :deep(.el-textarea__inner) {
+  min-height: 280px !important;
   resize: none;
 }
 
