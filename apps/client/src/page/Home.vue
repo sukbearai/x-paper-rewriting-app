@@ -71,9 +71,14 @@ const { runAsync: submitTaskAsync, loading: submitLoading } = useRequest(submitR
   },
 })
 
-// 查询任务结果
-const { runAsync: queryResultAsync } = useRequest(queryTaskResult, {
+const POLLING_INTERVAL = 5000
+const POLLING_TIMEOUT = 300000
+
+// 查询任务结果（利用 useRequest 轮询能力）
+const { runAsync: queryResultAsync, cancel: cancelQueryPolling } = useRequest(queryTaskResult, {
   manual: true,
+  pollingInterval: POLLING_INTERVAL,
+  pollingWhenHidden: false,
   onSuccess: (result) => {
     processingProgress.value = result.progress
     if (result.status === 'completed') {
@@ -171,8 +176,7 @@ async function startProcessing() {
   }
 }
 
-let pollingTimer: number | null = null
-let pollingTimeout: number | null = null
+let pollingTimeoutId: number | null = null
 
 function startPollingTaskStatus() {
   if (!currentTaskId.value)
@@ -180,43 +184,27 @@ function startPollingTaskStatus() {
 
   clearPollingTimer()
 
-  pollingTimer = window.setInterval(async () => {
-    try {
-      await queryResultAsync({
-        taskId: currentTaskId.value,
-        service: currentService.value,
-      })
-    }
-    catch {
-      // 错误已在请求封装中统一提示
-    }
-  }, 3000) // 每3秒查询一次
+  queryResultAsync({
+    taskId: currentTaskId.value,
+    service: currentService.value,
+  }).catch(() => {
+    // 错误已在请求封装中统一提示
+  })
 
-  // 设置超时，避免无限轮询
-  pollingTimeout = window.setTimeout(() => {
-    if (pollingTimer) {
-      window.clearInterval(pollingTimer)
-      pollingTimer = null
-      if (isProcessing.value) {
-        isProcessing.value = false
-        ElMessage.warning('任务处理超时，请稍后手动查询结果')
-      }
+  pollingTimeoutId = window.setTimeout(() => {
+    clearPollingTimer()
+    if (isProcessing.value) {
+      isProcessing.value = false
+      ElMessage.warning('任务处理超时，请稍后手动查询结果')
     }
-    if (pollingTimeout) {
-      window.clearTimeout(pollingTimeout)
-      pollingTimeout = null
-    }
-  }, 300000) // 5分钟超时
+  }, POLLING_TIMEOUT)
 }
 
 function clearPollingTimer() {
-  if (pollingTimer) {
-    window.clearInterval(pollingTimer)
-    pollingTimer = null
-  }
-  if (pollingTimeout) {
-    window.clearTimeout(pollingTimeout)
-    pollingTimeout = null
+  cancelQueryPolling()
+  if (pollingTimeoutId) {
+    window.clearTimeout(pollingTimeoutId)
+    pollingTimeoutId = null
   }
 }
 
