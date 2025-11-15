@@ -116,6 +116,42 @@ export interface PointsResponse {
   cost_per_1000_chars: number
 }
 
+export type PointsTransactionType = 'recharge' | 'spend' | 'transfer'
+
+export interface PointsTransaction {
+  id: number
+  profile_id: number
+  transaction_type: PointsTransactionType
+  amount: number
+  balance_after: number
+  description: string
+  reference_id?: string | null
+  is_successful: boolean
+  created_at: string
+}
+
+export interface PointsTransactionsPagination {
+  current_page: number
+  per_page: number
+  total: number
+  total_pages: number
+  has_next_page: boolean
+  has_prev_page: boolean
+}
+
+export interface PointsTransactionsResponse {
+  transactions: PointsTransaction[]
+  pagination: PointsTransactionsPagination
+}
+
+export interface PointsTransactionsQueryParams {
+  page?: number
+  limit?: number
+  transaction_type?: PointsTransactionType
+  start_date?: string
+  end_date?: string
+}
+
 // 表单数据
 export interface LoginOtpForm {
   phone: string

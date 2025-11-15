@@ -1,23 +1,43 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { TrendCharts, Wallet } from '@element-plus/icons-vue'
 import { useRequest } from 'vue-hooks-plus'
 import { useAuthStore } from '@/store/auth'
 import DragTable from '@/components/drag-table.vue'
+import type { PointsTransaction } from '@/api/interface'
+import { queryPointsTransactions } from '@/api/services'
 
 const authStore = useAuthStore()
 
 // 状态
 const amount = ref('')
-const activeTab = ref<'recharge' | 'transfer' | 'points'>('points') // 默认显示积分页面
-const loading = ref(false)
-const pageNum = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
+const activeTab = ref<'points' | 'recharge' | 'spend'>('points') // 默认显示积分页面
+const tableLoading = ref(false)
 
-const rechargeList = ref<any[]>([])
-const transferList = ref<any[]>([]) // 模拟空列表
+type TransactionTab = 'recharge' | 'spend'
+
+interface TableInfo {
+  list: PointsTransaction[]
+  pageNum: number
+  pageSize: number
+  total: number
+}
+
+const tableState = reactive<Record<TransactionTab, TableInfo>>({
+  recharge: {
+    list: [],
+    pageNum: 1,
+    pageSize: 10,
+    total: 0,
+  },
+  spend: {
+    list: [],
+    pageNum: 1,
+    pageSize: 10,
+    total: 0,
+  },
+})
 
 // 获取积分信息
 const { data: pointsData, runAsync: fetchPoints, loading: pointsLoading } = useRequest(authStore.fetchPoints, {
@@ -45,38 +65,58 @@ const taskCost = computed(() => {
 // 表格列
 const rechargeColumns = [
   { prop: 'id', label: 'ID', width: 80 },
-  { prop: 'payAmount', label: '付费金额', width: 120 },
-  { prop: 'amount', label: '到账积分', width: 120 },
-  { prop: 'remark', label: '备注', minWidth: 300, slot: 'remark' },
-  { prop: 'createTime', label: '创建时间', width: 180 },
+  { prop: 'amount', label: '积分变动', width: 120, slot: 'amount' },
+  { prop: 'balance_after', label: '变动后余额', width: 140, slot: 'balance' },
+  { prop: 'description', label: '备注', minWidth: 280, slot: 'description' },
+  { prop: 'is_successful', label: '状态', width: 100, slot: 'status' },
+  { prop: 'created_at', label: '创建时间', width: 180 },
 ]
 
-const transferColumns = [
+const spendColumns = [
   { prop: 'id', label: 'ID', width: 80 },
-  { prop: 'payAmount', label: '转账金额', width: 120 },
-  { prop: 'toUser', label: '接收人', width: 120 },
-  { prop: 'createTime', label: '创建时间', width: 180 },
+  { prop: 'amount', label: '消耗积分', width: 120, slot: 'amount' },
+  { prop: 'balance_after', label: '变动后余额', width: 140, slot: 'balance' },
+  { prop: 'description', label: '说明', minWidth: 280, slot: 'description' },
+  { prop: 'is_successful', label: '状态', width: 100, slot: 'status' },
+  { prop: 'created_at', label: '创建时间', width: 180 },
 ]
 
-// 模拟数据
-function mockRecharge() {
-  return Array.from({ length: 11 }, (_, i) => ({
-    id: 14259 - i,
-    payAmount: (3000 - i * 500).toFixed(2),
-    amount: (18000 - i * 2000).toFixed(0),
-    remark: `用户：18236582833通过在线支付${(3000 - i * 500).toFixed(2)}元充值${(18000 - i * 2000).toFixed(0)}积分`,
-    createTime: `2025-08-${25 - i} 09:45:54`,
-  }))
+function formatPointsValue(value: number | string | null | undefined) {
+  const numeric = Number(value)
+  if (Number.isNaN(numeric))
+    return '0.000'
+  const factor = 1000
+  const truncated = numeric >= 0
+    ? Math.floor(numeric * factor) / factor
+    : Math.ceil(numeric * factor) / factor
+  return truncated.toFixed(3)
 }
 
-// 方法
-async function fetchData() {
-  loading.value = true
-  setTimeout(() => {
-    rechargeList.value = mockRecharge()
-    total.value = rechargeList.value.length
-    loading.value = false
-  }, 300)
+async function fetchTransactions(type: TransactionTab) {
+  if (!authStore.isAuthenticated) {
+    tableState[type].list = []
+    tableState[type].total = 0
+    return
+  }
+
+  tableLoading.value = true
+  try {
+    const { pageNum, pageSize } = tableState[type]
+    const response = await queryPointsTransactions({
+      page: pageNum,
+      limit: pageSize,
+      transaction_type: type,
+    })
+    tableState[type].list = response.transactions ?? []
+    tableState[type].total = response.pagination?.total ?? 0
+  }
+  catch (error) {
+    tableState[type].list = []
+    tableState[type].total = 0
+  }
+  finally {
+    tableLoading.value = false
+  }
 }
 
 function handleRecharge() {
@@ -88,31 +128,64 @@ function handleRecharge() {
   // 跳转到支付页面或打开支付弹窗
   ElMessage.info(`充值功能开发中，充值金额：${amount.value} 元`)
   amount.value = ''
-  fetchData()
+  if (authStore.isAuthenticated)
+    fetchTransactions('recharge')
 }
 
-function handlePageChange({ page }: any) {
-  pageNum.value = page
-  fetchData()
+function handlePageChange(type: TransactionTab, payload: { page: number }) {
+  if (!payload?.page)
+    return
+  tableState[type].pageNum = payload.page
+  fetchTransactions(type)
 }
 
-function handleSizeChange({ size }: any) {
-  pageSize.value = size
-  pageNum.value = 1
-  fetchData()
+function handleSizeChange(type: TransactionTab, payload: { size: number }) {
+  if (!payload?.size)
+    return
+  tableState[type].pageSize = payload.size
+  tableState[type].pageNum = 1
+  fetchTransactions(type)
 }
 
 // 刷新积分
 function refreshPoints() {
+  if (!authStore.isAuthenticated) {
+    ElMessage.warning('请先登录后再刷新积分')
+    return
+  }
   fetchPoints()
 }
+
+function resetTableData() {
+  (['recharge', 'spend'] as TransactionTab[]).forEach((type) => {
+    tableState[type].list = []
+    tableState[type].total = 0
+    tableState[type].pageNum = 1
+    tableState[type].pageSize = 10
+  })
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'recharge' || tab === 'spend')
+    fetchTransactions(tab)
+})
+
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    fetchPoints()
+    fetchTransactions('recharge')
+  }
+  else {
+    resetTableData()
+  }
+})
 
 // 挂载
 onMounted(() => {
   if (authStore.isAuthenticated) {
     fetchPoints()
+    fetchTransactions('recharge')
   }
-  fetchData()
 })
 </script>
 
@@ -252,34 +325,70 @@ onMounted(() => {
           <DragTable
             height="50vh"
             :columns="rechargeColumns"
-            :data="{ name: 'rechargeList', data: rechargeList }"
-            :loading="loading"
+            :data="{ name: 'rechargeList', data: tableState.recharge.list }"
+            :loading="tableLoading"
             :show-pagination="true"
-            :total="total"
-            :page-num="pageNum"
-            :page-size="pageSize"
-            @page-num-change="handlePageChange"
-            @page-size-change="handleSizeChange"
+            :total="tableState.recharge.total"
+            :page-num="tableState.recharge.pageNum"
+            :page-size="tableState.recharge.pageSize"
+            @page-num-change="payload => handlePageChange('recharge', payload)"
+            @page-size-change="payload => handleSizeChange('recharge', payload)"
           >
-            <template #remark="{ row }">
-              <span class="text-gray-600">{{ row.remark }}</span>
+            <template #amount="{ row }">
+              <span :class="row.amount >= 0 ? 'text-green-600' : 'text-red-500'">
+                {{ formatPointsValue(row.amount) }}
+              </span>
+            </template>
+            <template #balance="{ row }">
+              {{ formatPointsValue(row.balance_after) }}
+            </template>
+            <template #description="{ row }">
+              <span class="text-gray-600">{{ row.description || '--' }}</span>
+            </template>
+            <template #status="{ row }">
+              <el-tag
+                size="small"
+                :type="row.is_successful ? 'success' : 'danger'"
+              >
+                {{ row.is_successful ? '成功' : '失败' }}
+              </el-tag>
             </template>
           </DragTable>
         </el-tab-pane>
 
-        <el-tab-pane label="转账记录" name="transfer">
+        <el-tab-pane label="消费记录" name="spend">
           <DragTable
             height="50vh"
-            :columns="transferColumns"
-            :data="{ name: 'transferList', data: transferList }"
-            :loading="loading"
+            :columns="spendColumns"
+            :data="{ name: 'spendList', data: tableState.spend.list }"
+            :loading="tableLoading"
             :show-pagination="true"
-            :total="total"
-            :page-num="pageNum"
-            :page-size="pageSize"
-            @page-num-change="handlePageChange"
-            @page-size-change="handleSizeChange"
-          />
+            :total="tableState.spend.total"
+            :page-num="tableState.spend.pageNum"
+            :page-size="tableState.spend.pageSize"
+            @page-num-change="payload => handlePageChange('spend', payload)"
+            @page-size-change="payload => handleSizeChange('spend', payload)"
+          >
+            <template #amount="{ row }">
+              <span :class="row.amount >= 0 ? 'text-green-600' : 'text-red-500'">
+                {{ formatPointsValue(row.amount) }}
+              </span>
+            </template>
+            <template #balance="{ row }">
+              {{ formatPointsValue(row.balance_after) }}
+            </template>
+            <template #description="{ row }">
+              <span class="text-gray-600">{{ row.description || '--' }}</span>
+            </template>
+            <template #status="{ row }">
+              <el-tag
+                size="small"
+                :type="row.is_successful ? 'success' : 'danger'"
+              >
+                {{ row.is_successful ? '成功' : '失败' }}
+              </el-tag>
+            </template>
+          </DragTable>
         </el-tab-pane>
       </el-tabs>
     </el-card>

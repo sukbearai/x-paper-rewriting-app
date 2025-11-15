@@ -5,6 +5,8 @@ import type {
   LoginWithOtpParams,
   LoginWithPasswordParams,
   PointsResponse,
+  PointsTransactionsQueryParams,
+  PointsTransactionsResponse,
   RegisterParams,
   RegisterResponse,
   SmsCodeParams,
@@ -84,5 +86,13 @@ export function queryPoints() {
   return request<PointsResponse>('/ai/points', {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+export function queryPointsTransactions(params: PointsTransactionsQueryParams = {}) {
+  return request<PointsTransactionsResponse>('/points/transactions', {
+    method: 'get',
+    headers: { 'Content-Type': 'application/json' },
+    params,
   })
 }

@@ -10,8 +10,6 @@ interface PointsTransactionsQueryParams {
   page?: number
   limit?: number
   transaction_type?: string
-  start_date?: string
-  end_date?: string
 }
 
 const points = new Hono<{ Bindings: DataBaseEnvBindings } & { Variables: AuthVariables }>()
@@ -21,8 +19,6 @@ const pointsTransactionsSchema = z.object({
   page: z.coerce.number().int().min(1, '页码必须大于0').default(1),
   limit: z.coerce.number().int().min(1, '每页数量必须大于0').max(100, '每页数量不能超过100').default(20),
   transaction_type: z.enum(['recharge', 'spend', 'transfer']).optional(),
-  start_date: z.string().datetime('开始日期格式不正确').optional(),
-  end_date: z.string().datetime('结束日期格式不正确').optional(),
 })
 
 // 查询积分余额
@@ -85,18 +81,6 @@ points.get('/transactions', authMiddleware, async (c) => {
       queryParams.transaction_type = transactionTypeParam
     }
 
-    // 处理start_date参数
-    const startDateParam = c.req.query('start_date')
-    if (startDateParam) {
-      queryParams.start_date = startDateParam
-    }
-
-    // 处理end_date参数
-    const endDateParam = c.req.query('end_date')
-    if (endDateParam) {
-      queryParams.end_date = endDateParam
-    }
-
     // 验证参数
     const parsed = pointsTransactionsSchema.safeParse(queryParams)
     if (!parsed.success) {
@@ -104,7 +88,7 @@ points.get('/transactions', authMiddleware, async (c) => {
       return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
     }
 
-    const { page, limit, transaction_type, start_date, end_date } = parsed.data
+    const { page, limit, transaction_type } = parsed.data
     const supabase = createSupabaseClient(c.env)
 
     // 首先获取用户的profile_id
@@ -131,21 +115,17 @@ points.get('/transactions', authMiddleware, async (c) => {
     }
 
     // 添加日期范围过滤
-    if (start_date) {
-      query = query.gte('created_at', start_date)
-    }
-    if (end_date) {
-      query = query.lte('created_at', end_date)
-    }
-
     // 获取总数
-    const { count, error: countError } = await supabase
+    let countQuery = supabase
       .from('points_transactions')
       .select('*', { count: 'exact', head: true })
       .eq('profile_id', profile.id)
-      .eq(transaction_type ? 'transaction_type' : '', transaction_type || '')
-      .gte('created_at', start_date || '1970-01-01T00:00:00Z')
-      .lte('created_at', end_date || '2099-12-31T23:59:59Z')
+
+    if (transaction_type) {
+      countQuery = countQuery.eq('transaction_type', transaction_type)
+    }
+
+    const { count, error: countError } = await countQuery
 
     if (countError) {
       console.error('[points:transactions] 查询总数失败:', countError)
