@@ -9,6 +9,7 @@ export interface AuthVariables {
   username: string
   email: string
   role: string
+  accessToken: string
 }
 
 /**
@@ -60,6 +61,7 @@ export const authMiddleware = createMiddleware<{
     c.set('username', profile.username || user.email?.split('@')[0] || '')
     c.set('email', user.email || '')
     c.set('role', profile.role || 'user')
+    c.set('accessToken', accessToken)
 
     await next()
   }
@@ -77,6 +79,8 @@ export const optionalAuthMiddleware = createMiddleware<{
   Bindings: DataBaseEnvBindings
   Variables: AuthVariables
 }>(async (c, next) => {
+  c.set('accessToken', '')
+
   const authHeader = c.req.header('Authorization')
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -123,6 +127,7 @@ export const optionalAuthMiddleware = createMiddleware<{
     c.set('username', profile.username || user.email?.split('@')[0] || '')
     c.set('email', user.email || '')
     c.set('role', profile.role || 'user')
+    c.set('accessToken', accessToken)
 
     await next()
   }

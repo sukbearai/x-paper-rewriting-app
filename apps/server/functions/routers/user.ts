@@ -500,14 +500,20 @@ user.post('/logout', authMiddleware, async (c) => {
     // 从中间件获取的用户信息
     const userId = c.get('userId')
     const username = c.get('username')
+    const accessToken = c.get('accessToken')
 
     console.log(`[logout] 用户 ${username}(${userId}) 退出登录`)
 
     // 从请求头获取refresh_token
     const refreshToken = c.req.header('refresh_token')
 
+    if (!accessToken) {
+      console.error('[logout] 缺少访问令牌')
+      return c.json(createErrorResponse('认证信息缺失，请重新登录', 401), 401)
+    }
+
     // 创建supabase客户端来处理退出
-    const supabase = createSupabaseClient(c.env)
+    const supabase = createSupabaseClient(c.env, accessToken)
 
     // 执行退出登录
     const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
@@ -544,8 +550,14 @@ user.post('/change-password', authMiddleware, async (c) => {
     const userId = c.get('userId')
     const username = c.get('username')
     const email = c.get('email')
+    const accessToken = c.get('accessToken')
 
     console.log(`[change-password] 用户 ${username}(${userId}) 修改密码`)
+
+    if (!accessToken) {
+      console.error('[change-password] 缺少访问令牌')
+      return c.json(createErrorResponse('认证信息缺失，请重新登录', 401), 401)
+    }
 
     let payload: ChangePasswordRequestBody
     try {
@@ -562,7 +574,7 @@ user.post('/change-password', authMiddleware, async (c) => {
     }
 
     const { current_password, new_password } = parsed.data
-    const supabase = createSupabaseClient(c.env)
+    const supabase = createSupabaseClient(c.env, accessToken)
 
     // 验证当前密码
     const { error: signInError } = await supabase.auth.signInWithPassword({

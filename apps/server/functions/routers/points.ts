@@ -26,10 +26,16 @@ points.get('/balance', authMiddleware, async (c) => {
   try {
     const userId = c.get('userId')
     const username = c.get('username')
+    const accessToken = c.get('accessToken')
 
     console.log(`[points:balance] 用户 ${username}(${userId}) 查询积分余额`)
 
-    const supabase = createSupabaseClient(c.env)
+    if (!accessToken) {
+      console.error('[points:balance] 缺少访问令牌')
+      return c.json(createErrorResponse('认证信息缺失，请重新登录', 401), 401)
+    }
+
+    const supabase = createSupabaseClient(c.env, accessToken)
 
     // 查询用户积分余额
     const { data: profile, error: profileError } = await supabase
@@ -57,8 +63,14 @@ points.get('/transactions', authMiddleware, async (c) => {
   try {
     const userId = c.get('userId')
     const username = c.get('username')
+    const accessToken = c.get('accessToken')
 
     console.log(`[points:transactions] 用户 ${username}(${userId}) 查询积分交易记录`)
+
+    if (!accessToken) {
+      console.error('[points:transactions] 缺少访问令牌')
+      return c.json(createErrorResponse('认证信息缺失，请重新登录', 401), 401)
+    }
 
     // 解析查询参数
     const queryParams: PointsTransactionsQueryParams = {}
@@ -89,7 +101,7 @@ points.get('/transactions', authMiddleware, async (c) => {
     }
 
     const { page, limit, transaction_type } = parsed.data
-    const supabase = createSupabaseClient(c.env)
+    const supabase = createSupabaseClient(c.env, accessToken)
 
     // 首先获取用户的profile_id
     const { data: profile, error: profileError } = await supabase
