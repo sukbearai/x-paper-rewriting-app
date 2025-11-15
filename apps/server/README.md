@@ -510,7 +510,141 @@ curl -X GET https://rewriting.congrongtech.cn/user/list \
 
 ---
 
-### 5. 用户退出登录
+### 5. 管理员修改用户角色
+
+**端点**: `POST /user/update-role`
+
+**描述**: 管理员修改任意用户的角色，支持在 `admin`、`agent`、`user` 之间切换。
+
+**请求头**:
+```
+Authorization: Bearer <access_token>
+```
+
+**请求体**:
+```json
+{
+  "target_user_id": "uuid-string",
+  "role": "agent"
+}
+```
+
+**参数**:
+- `Authorization` (必需): 访问令牌，仅管理员角色可调用。
+- `target_user_id` (必需): 目标用户的 Supabase Auth `user_id`，UUID 格式。
+- `role` (必需): 目标角色，允许值为 `admin`、`agent`、`user`。
+
+**cURL 示例**:
+```bash
+curl -X POST https://rewriting.congrongtech.cn/user/update-role \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "target_user_id": "8f8b2c9e-5a4f-4a38-b9c0-77cbd9c0bb01",
+    "role": "agent"
+  }'
+```
+
+**成功响应 (HTTP 200)**:
+```json
+{
+  "code": 0,
+  "message": "角色更新成功",
+  "data": {
+    "id": 12,
+    "user_id": "8f8b2c9e-5a4f-4a38-b9c0-77cbd9c0bb01",
+    "username": "targetuser",
+    "email": "target@example.com",
+    "phone": "+8613800138001",
+    "role": "agent",
+    "previous_role": "user",
+    "points_balance": 120,
+    "invite_code": "INV123",
+    "invited_by": null,
+    "created_at": "2023-12-01T10:00:00.000Z"
+  },
+  "timestamp": 1672531200000
+}
+```
+
+**错误响应**:
+- **HTTP 400 - 请求体或参数错误**:
+  ```json
+  {
+    "code": 400,
+    "message": "请求体格式错误，应为 JSON",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "用户ID格式不正确",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 400,
+    "message": "参数校验失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 401 - 未授权访问**:
+  ```json
+  {
+    "code": 401,
+    "message": "缺少访问令牌",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+  ```json
+  {
+    "code": 401,
+    "message": "访问令牌无效",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 403 - 权限不足**:
+  ```json
+  {
+    "code": 403,
+    "message": "仅管理员可修改用户角色",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 404 - 用户不存在**:
+  ```json
+  {
+    "code": 404,
+    "message": "目标用户不存在",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+- **HTTP 500 - 服务器内部错误**:
+  ```json
+  {
+    "code": 500,
+    "message": "更新用户角色失败",
+    "data": null,
+    "timestamp": 1672531200000
+  }
+  ```
+
+**说明**:
+- 当目标用户当前角色与目标角色一致时，接口返回成功并提示角色已是最新状态。
+- 成功更新后会同步返回最新的用户档案信息和 `previous_role` 字段，方便前端刷新展示。
+
+---
+
+### 6. 用户退出登录
 
 **端点**: `POST /user/logout`
 
@@ -586,7 +720,7 @@ curl -X POST https://rewriting.congrongtech.cn/user/logout \
 
 ---
 
-### 6. 用户修改密码
+### 7. 用户修改密码
 
 **端点**: `POST /user/change-password`
 
@@ -711,7 +845,7 @@ curl -X POST https://rewriting.congrongtech.cn/user/change-password \
 
 ---
 
-### 7. 提交降重或降AI率任务
+### 8. 提交降重或降AI率任务
 
 **端点**: `POST /ai/reduce-task`
 
@@ -874,7 +1008,7 @@ curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
 
 ---
 
-### 8. 查询任务结果
+### 9. 查询任务结果
 
 **端点**: `POST /ai/result`
 
@@ -1066,7 +1200,7 @@ CHEEYUAN服务失败响应:
 
 ---
 
-### 9. 查询用户积分
+### 10. 查询用户积分
 
 **端点**: `POST /ai/points`
 
@@ -1139,7 +1273,7 @@ curl -X POST https://rewriting.congrongtech.cn/ai/points \
 
 ---
 
-### 10. 查询积分余额
+### 11. 查询积分余额
 
 **端点**: `GET /points/balance`
 
@@ -1211,7 +1345,7 @@ curl -X GET https://rewriting.congrongtech.cn/points/balance \
 
 ---
 
-### 11. 查询积分交易记录
+### 12. 查询积分交易记录
 
 **端点**: `GET /points/transactions`
 
@@ -1399,7 +1533,7 @@ curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=
 
 ---
 
-### 12. 积分返还申请
+### 13. 积分返还申请
 
 **端点**: `POST /points/refund`
 

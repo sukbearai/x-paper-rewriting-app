@@ -27,6 +27,11 @@ interface ChangePasswordRequestBody {
   new_password?: string
 }
 
+interface UpdateUserRoleRequestBody {
+  target_user_id?: string
+  role?: string
+}
+
 interface ProfileRecord {
   id: number
   user_id: string
@@ -120,6 +125,16 @@ const changePasswordSchema = z.object({
 }).refine(data => data.current_password !== data.new_password, {
   message: '新密码不能与当前密码相同',
   path: ['new_password'],
+})
+
+const updateUserRoleSchema = z.object({
+  target_user_id: z.string()
+    .trim()
+    .uuid('用户ID格式不正确'),
+  role: z.preprocess(
+    value => typeof value === 'string' ? value.trim().toLowerCase() : value,
+    z.enum(['admin', 'agent', 'user']),
+  ),
 })
 
 // 生成6位随机邀请码
@@ -612,6 +627,101 @@ user.get('/list', authMiddleware, async (c) => {
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
     console.error('[user:list] 获取用户列表异常:', err)
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+user.post('/update-role', authMiddleware, async (c) => {
+  try {
+    const requesterId = c.get('userId')
+    const requesterName = c.get('username')
+    const requesterRole = (c.get('role') || '').toLowerCase()
+
+    if (requesterRole !== 'admin') {
+      return c.json(createErrorResponse('仅管理员可修改用户角色', 403), 403)
+    }
+
+    let payload: UpdateUserRoleRequestBody
+    try {
+      payload = await c.req.json<UpdateUserRoleRequestBody>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = updateUserRoleSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { target_user_id, role: targetRole } = parsed.data
+    const adminSupabase = createSupabaseAdminClient(c.env)
+
+    const { data: targetProfile, error: targetProfileError } = await adminSupabase
+      .from('profiles')
+      .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+      .eq('user_id', target_user_id)
+      .single()
+
+    if (targetProfileError || !targetProfile) {
+      console.error('[user:update-role] 未找到目标用户:', targetProfileError)
+      return c.json(createErrorResponse('目标用户不存在', 404), 404)
+    }
+
+    const previousRoleRaw = targetProfile.role || 'user'
+    const previousRole = typeof previousRoleRaw === 'string' ? previousRoleRaw.toLowerCase() : 'user'
+
+    if (previousRole === targetRole) {
+      console.log(`[user:update-role] 管理员 ${requesterName}(${requesterId}) 调整用户 ${target_user_id} 角色，但角色已为 ${targetRole}`)
+      return c.json(createSuccessResponse({
+        id: targetProfile.id,
+        user_id: targetProfile.user_id,
+        username: targetProfile.username,
+        email: targetProfile.email,
+        phone: targetProfile.phone,
+        role: targetProfile.role || 'user',
+        points_balance: targetProfile.points_balance ?? 0,
+        invite_code: targetProfile.invite_code,
+        invited_by: targetProfile.invited_by,
+        created_at: targetProfile.created_at,
+      }, '角色已是最新状态'))
+    }
+
+    const { data: updatedProfile, error: updateError } = await adminSupabase
+      .from('profiles')
+      .update({
+        role: targetRole,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', target_user_id)
+      .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+      .single()
+
+    if (updateError || !updatedProfile) {
+      console.error('[user:update-role] 更新用户角色失败:', updateError)
+      return c.json(createErrorResponse('更新用户角色失败', 500), 500)
+    }
+
+    console.log(`[user:update-role] 管理员 ${requesterName}(${requesterId}) 将用户 ${target_user_id} 角色从 ${previousRole} 更新为 ${targetRole}`)
+
+    return c.json(createSuccessResponse({
+      id: updatedProfile.id,
+      user_id: updatedProfile.user_id,
+      username: updatedProfile.username,
+      email: updatedProfile.email,
+      phone: updatedProfile.phone,
+      role: updatedProfile.role || targetRole,
+      previous_role: previousRole,
+      points_balance: updatedProfile.points_balance ?? 0,
+      invite_code: updatedProfile.invite_code,
+      invited_by: updatedProfile.invited_by,
+      created_at: updatedProfile.created_at,
+    }, '角色更新成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.error('[user:update-role] 修改用户角色异常:', err)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })
