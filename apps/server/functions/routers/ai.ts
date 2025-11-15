@@ -441,7 +441,12 @@ ai.post('/result', async (c) => {
 
       if (!response.ok) {
         console.error('REDUCEAI结果查询失败:', response.status, response.statusText)
-        return c.json(createErrorResponse('REDUCEAI结果查询失败', 500), 500)
+        // return c.json(createErrorResponse('REDUCEAI结果查询失败', 500), 500)
+        return c.json(createSuccessResponse({
+          status: 'processing',
+          progress: 0,
+          result: null,
+        }, '查询成功'))
       }
 
       const result = await response.json() as {
