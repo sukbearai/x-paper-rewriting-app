@@ -7,10 +7,6 @@ export interface R2EnvBindings {
   R2_BUCKET_NAME?: string
   R2_ACCESS_KEY_ID?: string
   R2_SECRET_ACCESS_KEY?: string
-  S3_API?: string
-  S3_BUCKET_NAME?: string
-  S3_ACCESS_ID?: string
-  S3_ACCESS_KEY?: string
   R2_PUBLIC_URL?: string
 }
 
@@ -20,27 +16,6 @@ export interface R2ResolvedConfig {
   accessKeyId: string
   secretAccessKey: string
   publicUrl?: string
-}
-
-interface ParseS3ApiResult {
-  endpoint: string
-  bucket?: string
-}
-
-function parseS3Api(value: string): ParseS3ApiResult | null {
-  try {
-    const url = new URL(value)
-    const bucketFromPath = url.pathname.replace(/^\/+/, '').split('/')[0]
-
-    return {
-      endpoint: `${url.protocol}//${url.host}`,
-      bucket: bucketFromPath || undefined,
-    }
-  }
-  catch (error) {
-    console.warn('[r2] Unable to parse S3_API value:', error)
-    return null
-  }
 }
 
 function readEnvString(source: Record<string, unknown>, key: keyof R2EnvBindings): string | undefined {
@@ -58,22 +33,12 @@ export function resolveR2Config(env: R2EnvBindings | Record<string, unknown>): R
 
   const directEndpoint = readEnvString(source, 'R2_ENDPOINT')
   const accountId = readEnvString(source, 'R2_ACCOUNT_ID')
-  const bucketFromEnv = readEnvString(source, 'R2_BUCKET_NAME') ?? readEnvString(source, 'S3_BUCKET_NAME')
-  const accessKeyId = readEnvString(source, 'R2_ACCESS_KEY_ID') ?? readEnvString(source, 'S3_ACCESS_ID')
-  const secretAccessKey = readEnvString(source, 'R2_SECRET_ACCESS_KEY') ?? readEnvString(source, 'S3_ACCESS_KEY')
-  const s3ApiValue = readEnvString(source, 'S3_API')
+  const bucketName = readEnvString(source, 'R2_BUCKET_NAME')
+  const accessKeyId = readEnvString(source, 'R2_ACCESS_KEY_ID')
+  const secretAccessKey = readEnvString(source, 'R2_SECRET_ACCESS_KEY')
   const publicUrl = readEnvString(source, 'R2_PUBLIC_URL')
 
   let endpoint = directEndpoint
-  let bucket = bucketFromEnv
-
-  if (!endpoint && s3ApiValue) {
-    const parsed = parseS3Api(s3ApiValue)
-    if (parsed) {
-      endpoint = parsed.endpoint
-      bucket = bucket ?? parsed.bucket
-    }
-  }
 
   if (!endpoint && accountId) {
     endpoint = `https://${accountId}.r2.cloudflarestorage.com`
@@ -82,13 +47,13 @@ export function resolveR2Config(env: R2EnvBindings | Record<string, unknown>): R
   const missing: string[] = []
 
   if (!endpoint)
-    missing.push('R2_ENDPOINT or R2_ACCOUNT_ID or S3_API')
-  if (!bucket)
-    missing.push('R2_BUCKET_NAME or S3_BUCKET_NAME or S3_API path')
+    missing.push('R2_ENDPOINT or R2_ACCOUNT_ID')
+  if (!bucketName)
+    missing.push('R2_BUCKET_NAME')
   if (!accessKeyId)
-    missing.push('R2_ACCESS_KEY_ID or S3_ACCESS_ID')
+    missing.push('R2_ACCESS_KEY_ID')
   if (!secretAccessKey)
-    missing.push('R2_SECRET_ACCESS_KEY or S3_ACCESS_KEY')
+    missing.push('R2_SECRET_ACCESS_KEY')
 
   if (missing.length > 0) {
     throw new Error(`[r2] Missing environment configuration: ${missing.join(', ')}`)
@@ -96,7 +61,7 @@ export function resolveR2Config(env: R2EnvBindings | Record<string, unknown>): R
 
   return {
     endpoint: endpoint!,
-    bucket: bucket!,
+    bucket: bucketName!,
     accessKeyId: accessKeyId!,
     secretAccessKey: secretAccessKey!,
     publicUrl,
