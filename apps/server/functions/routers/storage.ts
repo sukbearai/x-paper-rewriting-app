@@ -63,7 +63,7 @@ storage.post('/test-upload', async (c) => {
       return c.json(createErrorResponse('文件对象格式错误', 400), 400)
     }
 
-    // 获取文件内容
+    // 获取文件内容，保持原始格式
     let fileBuffer: ArrayBuffer
     if ('arrayBuffer' in file && typeof file.arrayBuffer === 'function') {
       fileBuffer = await file.arrayBuffer()
