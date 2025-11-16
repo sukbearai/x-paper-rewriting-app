@@ -194,13 +194,13 @@ function ensureBucketInEndpoint(endpoint: string, bucket: string): string {
   }
 }
 
-function normalizeUploadBody(body: UploadR2ObjectParams['body']): string | Buffer {
+function normalizeUploadBody(body: UploadR2ObjectParams['body']): string | Uint8Array {
   if (typeof body === 'string')
     return body
   if (body instanceof ArrayBuffer)
-    return Buffer.from(body)
+    return new Uint8Array(body)
   if (ArrayBuffer.isView(body))
-    return Buffer.from(body.buffer, body.byteOffset, body.byteLength)
+    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
 
   throw new TypeError('[r2] Unsupported upload body type')
 }
