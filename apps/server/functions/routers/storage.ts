@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import {
+  createPublicUrl,
   createR2Client,
   createR2ObjectKey,
   resolveR2Config,
@@ -90,6 +91,7 @@ storage.post('/test-upload', async (c) => {
     }
 
     const key = createR2ObjectKey(file.name as string, { prefix: 'test' })
+    const publicUrl = createPublicUrl(config, key)
 
     await uploadR2Object(client, {
       bucket: config.bucket,
@@ -103,6 +105,7 @@ storage.post('/test-upload', async (c) => {
       key,
       size: file.size as number,
       type: file.type as string,
+      url: publicUrl,
     }, '测试上传成功'))
   }
   catch (error) {

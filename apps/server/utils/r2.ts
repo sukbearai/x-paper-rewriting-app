@@ -11,6 +11,7 @@ export interface R2EnvBindings {
   S3_BUCKET_NAME?: string
   S3_ACCESS_ID?: string
   S3_ACCESS_KEY?: string
+  R2_PUBLIC_URL?: string
 }
 
 export interface R2ResolvedConfig {
@@ -18,6 +19,7 @@ export interface R2ResolvedConfig {
   bucket: string
   accessKeyId: string
   secretAccessKey: string
+  publicUrl?: string
 }
 
 interface ParseS3ApiResult {
@@ -60,6 +62,7 @@ export function resolveR2Config(env: R2EnvBindings | Record<string, unknown>): R
   const accessKeyId = readEnvString(source, 'R2_ACCESS_KEY_ID') ?? readEnvString(source, 'S3_ACCESS_ID')
   const secretAccessKey = readEnvString(source, 'R2_SECRET_ACCESS_KEY') ?? readEnvString(source, 'S3_ACCESS_KEY')
   const s3ApiValue = readEnvString(source, 'S3_API')
+  const publicUrl = readEnvString(source, 'R2_PUBLIC_URL')
 
   let endpoint = directEndpoint
   let bucket = bucketFromEnv
@@ -96,6 +99,7 @@ export function resolveR2Config(env: R2EnvBindings | Record<string, unknown>): R
     bucket: bucket!,
     accessKeyId: accessKeyId!,
     secretAccessKey: secretAccessKey!,
+    publicUrl,
   }
 }
 
@@ -143,9 +147,11 @@ export async function uploadR2Object(client: S3mini, params: UploadR2ObjectParam
   let payload: Uint8Array
   if (typeof params.body === 'string') {
     payload = new TextEncoder().encode(params.body)
-  } else if (params.body instanceof ArrayBuffer) {
+  }
+  else if (params.body instanceof ArrayBuffer) {
     payload = new Uint8Array(params.body)
-  } else {
+  }
+  else {
     payload = new Uint8Array(params.body.buffer, params.body.byteOffset, params.body.byteLength)
   }
 
@@ -178,6 +184,17 @@ export function createR2ObjectKey(filename: string, options: CreateObjectKeyOpti
   const unique = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
   return `${prefix}${unique}-${safeFilename}`
+}
+
+export function createPublicUrl(config: R2ResolvedConfig, key: string): string | null {
+  if (!config.publicUrl) {
+    return null
+  }
+
+  const normalizedKey = key.replace(/^\/+/, '')
+  const baseUrl = config.publicUrl.replace(/\/+$/, '')
+
+  return `${baseUrl}/${normalizedKey}`
 }
 
 function ensureBucketInEndpoint(endpoint: string, bucket: string): string {
