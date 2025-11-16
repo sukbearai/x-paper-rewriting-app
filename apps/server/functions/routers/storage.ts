@@ -94,7 +94,7 @@ storage.post('/test-upload', async (c) => {
     await uploadR2Object(client, {
       bucket: config.bucket,
       key,
-      body: fileBuffer,
+      body: new Uint8Array(fileBuffer),
       contentType: file.type as string || 'application/octet-stream',
     })
 
