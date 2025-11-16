@@ -53,25 +53,56 @@ storage.post('/test-upload', async (c) => {
     const candidate = body.file
     const file = Array.isArray(candidate) ? candidate[0] : candidate
 
-    if (!(file instanceof File)) {
+    if (!file || typeof file === 'string') {
       return c.json(createErrorResponse('缺少文件或文件格式错误', 400), 400)
     }
 
-    const key = createR2ObjectKey(file.name, { prefix: 'test' })
-    const arrayBuffer = await file.arrayBuffer()
+    // 检查文件对象是否具有必要的属性
+    if (!('name' in file && 'size' in file && 'type' in file)) {
+      return c.json(createErrorResponse('文件对象格式错误', 400), 400)
+    }
+
+    // 获取文件内容
+    let fileBuffer: ArrayBuffer
+    if ('arrayBuffer' in file && typeof file.arrayBuffer === 'function') {
+      fileBuffer = await file.arrayBuffer()
+    }
+    else if ('stream' in file && typeof file.stream === 'function') {
+      const reader = file.stream().getReader()
+      const chunks: Uint8Array[] = []
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done)
+          break
+        chunks.push(value)
+      }
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+      const result = new Uint8Array(totalLength)
+      let offset = 0
+      for (const chunk of chunks) {
+        result.set(chunk, offset)
+        offset += chunk.length
+      }
+      fileBuffer = result.buffer
+    }
+    else {
+      return c.json(createErrorResponse('不支持的文件格式', 400), 400)
+    }
+
+    const key = createR2ObjectKey(file.name as string, { prefix: 'test' })
 
     await uploadR2Object(client, {
       bucket: config.bucket,
       key,
-      body: new Uint8Array(arrayBuffer),
-      contentType: file.type || 'application/octet-stream',
+      body: new Uint8Array(fileBuffer),
+      contentType: file.type as string || 'application/octet-stream',
     })
 
     return c.json(createSuccessResponse({
       bucket: config.bucket,
       key,
-      size: file.size,
-      type: file.type,
+      size: file.size as number,
+      type: file.type as string,
     }, '测试上传成功'))
   }
   catch (error) {
