@@ -108,10 +108,53 @@ export async function uploadR2Object(client: S3mini, params: UploadR2ObjectParam
   const headerCandidate = buildAdditionalHeaders(params)
   const headers = Object.keys(headerCandidate).length > 0 ? headerCandidate : undefined
 
-  // 直接传递原始数据，不进行任何转换
+  // 在 Cloudflare Functions 中创建一个 Buffer-like 对象
+  let data: Uint8Array
+  if (typeof params.body === 'string') {
+    data = new TextEncoder().encode(params.body)
+  } else if (params.body instanceof ArrayBuffer) {
+    data = new Uint8Array(params.body)
+  } else {
+    data = new Uint8Array(params.body.buffer, params.body.byteOffset, params.byteLength)
+  }
+
+  // 创建一个类似 Buffer 的对象
+  const bufferLike = {
+    buffer: data.buffer,
+    byteOffset: data.byteOffset,
+    byteLength: data.byteLength,
+    length: data.length,
+    [Symbol.iterator]: () => data[Symbol.iterator](),
+    slice: (begin?: number, end?: number) => data.slice(begin, end),
+    subarray: (begin?: number, end?: number) => data.subarray(begin, end),
+    // 添加 toString 方法，根据内容类型决定处理方式
+    toString: () => {
+      // 检查是否是文本内容类型
+      const contentType = params.contentType ?? 'application/octet-stream'
+      const isTextType = contentType.startsWith('text/') ||
+                       contentType.includes('json') ||
+                       contentType.includes('xml') ||
+                       contentType.includes('javascript') ||
+                       contentType.includes('css')
+
+      if (isTextType) {
+        // 文本内容直接返回字符串
+        return new TextDecoder().decode(data)
+      } else {
+        // 二进制内容使用 base64 编码
+        if (typeof btoa !== 'undefined') {
+          const binaryString = Array.from(data, byte => String.fromCharCode(byte)).join('')
+          return btoa(binaryString)
+        }
+        // 如果没有 btoa，fallback 到原始字符串（可能会损坏二进制数据）
+        return new TextDecoder().decode(data)
+      }
+    }
+  } as any
+
   await client.putObject(
     normalizedKey,
-    params.body as any,
+    bufferLike,
     params.contentType ?? 'application/octet-stream',
     undefined,
     headers as Parameters<S3mini['putObject']>[4],
