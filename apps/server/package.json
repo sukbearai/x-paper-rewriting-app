@@ -7,12 +7,12 @@
     "build": "npm run sync-docs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.932.0",
     "@supabase/supabase-js": "^2.57.4",
     "highlight.js": "^11.11.1",
     "hono": "^4.7.10",
     "marked": "^15.0.12",
     "marked-highlight": "^2.2.1",
+    "s3mini": "^0.6.0",
     "standardwebhooks": "^1.0.0",
     "zod": "^4.1.9"
   },

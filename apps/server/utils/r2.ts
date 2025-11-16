@@ -1,4 +1,5 @@
-import { PutObjectCommand, type PutObjectCommandInput, S3Client, type S3ClientConfig } from '@aws-sdk/client-s3'
+import { S3mini } from 's3mini'
+import type { S3Config } from 's3mini'
 
 export interface R2EnvBindings {
   R2_ENDPOINT?: string
@@ -98,44 +99,54 @@ export function resolveR2Config(env: R2EnvBindings | Record<string, unknown>): R
   }
 }
 
-export function createR2Client(config: R2ResolvedConfig, overrides: Partial<S3ClientConfig> = {}): S3Client {
-  const baseConfig: S3ClientConfig = {
-    region: 'auto',
-    endpoint: config.endpoint,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
+export function createR2Client(config: R2ResolvedConfig, overrides: Partial<S3Config> = {}): S3mini {
+  const {
+    endpoint: endpointOverride,
+    accessKeyId: overrideAccessKeyId,
+    secretAccessKey: overrideSecretAccessKey,
+    region,
+    requestSizeInBytes,
+    requestAbortTimeout,
+    logger,
+  } = overrides
+
+  const endpointWithBucket = endpointOverride ?? ensureBucketInEndpoint(config.endpoint, config.bucket)
+
+  const clientConfig: S3Config = {
+    accessKeyId: overrideAccessKeyId ?? config.accessKeyId,
+    secretAccessKey: overrideSecretAccessKey ?? config.secretAccessKey,
+    endpoint: endpointWithBucket,
+    region: region ?? 'auto',
+    ...(typeof requestSizeInBytes === 'number' ? { requestSizeInBytes } : {}),
+    ...(typeof requestAbortTimeout === 'number' ? { requestAbortTimeout } : {}),
+    ...(logger ? { logger } : {}),
   }
 
-  return new S3Client({
-    ...baseConfig,
-    ...overrides,
-  })
+  return new S3mini(clientConfig)
 }
 
 export interface UploadR2ObjectParams {
   bucket: string
   key: string
-  body: NonNullable<PutObjectCommandInput['Body']>
+  body: string | ArrayBuffer | ArrayBufferView
   contentType?: string
   cacheControl?: string
   metadata?: Record<string, string>
 }
 
-export async function uploadR2Object(client: S3Client, params: UploadR2ObjectParams): Promise<{ key: string }> {
+export async function uploadR2Object(client: S3mini, params: UploadR2ObjectParams): Promise<{ key: string }> {
   const normalizedKey = params.key.replace(/^\/+/, '')
+  const payload = normalizeUploadBody(params.body)
+  const headerCandidate = buildAdditionalHeaders(params)
+  const headers = Object.keys(headerCandidate).length > 0 ? headerCandidate : undefined
 
-  const command = new PutObjectCommand({
-    Bucket: params.bucket,
-    Key: normalizedKey,
-    Body: params.body,
-    ContentType: params.contentType,
-    CacheControl: params.cacheControl,
-    Metadata: params.metadata,
-  })
-
-  await client.send(command)
+  await client.putObject(
+    normalizedKey,
+    payload,
+    params.contentType ?? 'application/octet-stream',
+    undefined,
+    headers as Parameters<S3mini['putObject']>[4],
+  )
 
   return { key: normalizedKey }
 }
@@ -155,4 +166,67 @@ export function createR2ObjectKey(filename: string, options: CreateObjectKeyOpti
   const unique = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 
   return `${prefix}${unique}-${safeFilename}`
+}
+
+function ensureBucketInEndpoint(endpoint: string, bucket: string): string {
+  const normalizedBucket = bucket.trim().replace(/^\/+/g, '').replace(/\/+$/g, '')
+  if (!normalizedBucket)
+    return endpoint.replace(/\/+$/g, '')
+
+  try {
+    const url = new URL(endpoint)
+    const bucketLower = normalizedBucket.toLowerCase()
+    const hostParts = url.hostname.split('.')
+    const bucketInHost = hostParts.some(part => part?.toLowerCase() === bucketLower)
+    const pathSegments = url.pathname.split('/').filter(Boolean)
+    const bucketInPath = pathSegments.some(segment => segment.toLowerCase() === bucketLower)
+
+    if (!bucketInHost && !bucketInPath) {
+      const trimmedPath = url.pathname.replace(/\/+$|^\/+/g, '')
+      url.pathname = trimmedPath ? `/${trimmedPath}/${normalizedBucket}` : `/${normalizedBucket}`
+    }
+
+    return url.toString().replace(/\/+$/g, '')
+  }
+  catch {
+    const trimmedEndpoint = endpoint.replace(/\/+$/g, '')
+    return `${trimmedEndpoint}/${normalizedBucket}`
+  }
+}
+
+function normalizeUploadBody(body: UploadR2ObjectParams['body']): string | Uint8Array {
+  if (typeof body === 'string')
+    return body
+  if (body instanceof ArrayBuffer)
+    return new Uint8Array(body)
+  if (ArrayBuffer.isView(body))
+    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+
+  throw new TypeError('[r2] Unsupported upload body type')
+}
+
+function buildAdditionalHeaders(params: Pick<UploadR2ObjectParams, 'cacheControl' | 'metadata'>): Record<string, string> {
+  const headers: Record<string, string> = {}
+
+  if (params.cacheControl)
+    headers['cache-control'] = params.cacheControl
+
+  if (params.metadata) {
+    for (const [key, value] of Object.entries(params.metadata)) {
+      if (typeof value !== 'string')
+        continue
+
+      const safeKey = key
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+
+      if (!safeKey)
+        continue
+
+      headers[`x-amz-meta-${safeKey}`] = value
+    }
+  }
+
+  return headers
 }
