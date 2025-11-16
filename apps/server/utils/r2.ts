@@ -108,24 +108,10 @@ export async function uploadR2Object(client: S3mini, params: UploadR2ObjectParam
   const headerCandidate = buildAdditionalHeaders(params)
   const headers = Object.keys(headerCandidate).length > 0 ? headerCandidate : undefined
 
-  // 在 Cloudflare Functions 中手动创建 Buffer-like 对象
-  let payload: Uint8Array
-  if (typeof params.body === 'string') {
-    payload = new TextEncoder().encode(params.body)
-  }
-  else if (params.body instanceof ArrayBuffer) {
-    payload = new Uint8Array(params.body)
-  }
-  else {
-    payload = new Uint8Array(params.body.buffer, params.body.byteOffset, params.body.byteLength)
-  }
-
-  // 转换为字符串以便 s3mini 接受
-  const binaryString = Array.from(payload, byte => String.fromCharCode(byte)).join('')
-
+  // 直接传递原始数据，不进行任何转换
   await client.putObject(
     normalizedKey,
-    binaryString,
+    params.body as any,
     params.contentType ?? 'application/octet-stream',
     undefined,
     headers as Parameters<S3mini['putObject']>[4],
