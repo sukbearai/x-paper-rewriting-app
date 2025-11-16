@@ -139,9 +139,10 @@ export async function uploadR2Object(client: S3mini, params: UploadR2ObjectParam
   const headerCandidate = buildAdditionalHeaders(params)
   const headers = Object.keys(headerCandidate).length > 0 ? headerCandidate : undefined
 
+  // 直接传递二进制数据，让 s3mini 处理
   await client.putObject(
     normalizedKey,
-    params.body as string,
+    params.body as any,
     params.contentType ?? 'application/octet-stream',
     undefined,
     headers as Parameters<S3mini['putObject']>[4],
