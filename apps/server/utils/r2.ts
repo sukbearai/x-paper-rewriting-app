@@ -136,13 +136,12 @@ export interface UploadR2ObjectParams {
 
 export async function uploadR2Object(client: S3mini, params: UploadR2ObjectParams): Promise<{ key: string }> {
   const normalizedKey = params.key.replace(/^\/+/, '')
-  const payload = normalizeUploadBody(params.body)
   const headerCandidate = buildAdditionalHeaders(params)
   const headers = Object.keys(headerCandidate).length > 0 ? headerCandidate : undefined
 
   await client.putObject(
     normalizedKey,
-    payload,
+    params.body as string,
     params.contentType ?? 'application/octet-stream',
     undefined,
     headers as Parameters<S3mini['putObject']>[4],
@@ -192,17 +191,6 @@ function ensureBucketInEndpoint(endpoint: string, bucket: string): string {
     const trimmedEndpoint = endpoint.replace(/\/+$/g, '')
     return `${trimmedEndpoint}/${normalizedBucket}`
   }
-}
-
-function normalizeUploadBody(body: UploadR2ObjectParams['body']): string | Uint8Array {
-  if (typeof body === 'string')
-    return body
-  if (body instanceof ArrayBuffer)
-    return new Uint8Array(body)
-  if (ArrayBuffer.isView(body))
-    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
-
-  throw new TypeError('[r2] Unsupported upload body type')
 }
 
 function buildAdditionalHeaders(params: Pick<UploadR2ObjectParams, 'cacheControl' | 'metadata'>): Record<string, string> {
