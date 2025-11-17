@@ -6,15 +6,23 @@ import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseAdminClient } from '@/utils/db'
 import {
+  createPublicUrl,
   createR2Client,
+  createR2ObjectKey,
   resolveR2Config,
+  uploadR2Object,
 } from '@/utils/r2'
 import type { R2EnvBindings, R2ResolvedConfig } from '@/utils/r2'
 
 type AiEnvBindings = DataBaseEnvBindings & R2EnvBindings
+interface R2Resources {
+  client: ReturnType<typeof createR2Client>
+  config: R2ResolvedConfig
+}
+
 type AiVariables = Variables & AuthVariables & {
-  r2Client?: ReturnType<typeof createR2Client>
-  r2Config?: R2ResolvedConfig
+  r2Client?: R2Resources['client']
+  r2Config?: R2Resources['config']
 }
 
 const ai = new Hono<{
@@ -26,6 +34,17 @@ let cachedR2Client: ReturnType<typeof createR2Client> | null = null
 let cachedR2Config: R2ResolvedConfig | null = null
 let cachedR2Signature: string | null = null
 let r2BootstrapFailed = false
+
+const AI_SNAPSHOT_PREFIX = 'ai-tasks'
+
+type SnapshotVariant = 'input' | 'output'
+
+interface SnapshotPayload {
+  userId: string
+  taskId: string
+  variant: SnapshotVariant
+  content: string
+}
 
 function ensureR2Resources(env: AiEnvBindings) {
   const resolved = resolveR2Config(env)
@@ -42,6 +61,107 @@ function ensureR2Resources(env: AiEnvBindings) {
   }
 
   return { client: cachedR2Client, config: cachedR2Config }
+}
+
+function sanitizePathSegment(value: string): string {
+  return value.replace(/[^\w-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'unknown'
+}
+
+async function uploadTaskSnapshot(resources: R2Resources, payload: SnapshotPayload): Promise<string> {
+  const prefixSegments = [AI_SNAPSHOT_PREFIX, sanitizePathSegment(payload.userId), sanitizePathSegment(payload.taskId)]
+    .filter(Boolean)
+    .join('/')
+
+  const key = createR2ObjectKey(`${payload.variant}.txt`, { prefix: prefixSegments })
+
+  const { key: storedKey } = await uploadR2Object(resources.client, {
+    bucket: resources.config.bucket,
+    key,
+    body: payload.content,
+    contentType: 'text/plain; charset=utf-8',
+    metadata: {
+      task_id: payload.taskId,
+      variant: payload.variant,
+    },
+  })
+
+  return createPublicUrl(resources.config, storedKey) ?? storedKey
+}
+
+async function tryUploadTaskSnapshot(resources: R2Resources, payload: SnapshotPayload): Promise<string | null> {
+  try {
+    return await uploadTaskSnapshot(resources, payload)
+  }
+  catch (error) {
+    console.error(`[ai][r2] 上传${payload.variant}文本失败:`, error)
+    return null
+  }
+}
+
+type TransactionFileUpdate = Partial<{
+  user_input_file_url: string
+  ai_response_file_url: string
+}>
+
+function buildTransactionFileUpdate(update: TransactionFileUpdate): Record<string, string> {
+  const payload: Record<string, string> = {}
+
+  if (typeof update.user_input_file_url === 'string' && update.user_input_file_url.length > 0)
+    payload.user_input_file_url = update.user_input_file_url
+
+  if (typeof update.ai_response_file_url === 'string' && update.ai_response_file_url.length > 0)
+    payload.ai_response_file_url = update.ai_response_file_url
+
+  return payload
+}
+
+async function updateTransactionFilesById(env: DataBaseEnvBindings, transactionId: number, update: TransactionFileUpdate): Promise<void> {
+  const payload = buildTransactionFileUpdate(update)
+
+  if (Object.keys(payload).length === 0)
+    return
+
+  const supabase = createSupabaseAdminClient(env)
+  const { error } = await supabase
+    .from('points_transactions')
+    .update(payload)
+    .eq('id', transactionId)
+
+  if (error) {
+    console.error('[updateTransactionFilesById] 更新积分交易文件字段失败:', error)
+  }
+}
+
+async function updateTransactionFilesByReference(env: DataBaseEnvBindings, userId: string, taskId: string, update: TransactionFileUpdate): Promise<void> {
+  const payload = buildTransactionFileUpdate(update)
+
+  if (Object.keys(payload).length === 0)
+    return
+
+  const supabase = createSupabaseAdminClient(env)
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .single()
+
+  if (profileError || !profileData) {
+    console.error('[updateTransactionFilesByReference] 获取用户档案失败:', profileError)
+    return
+  }
+
+  const { error } = await supabase
+    .from('points_transactions')
+    .update(payload)
+    .eq('profile_id', profileData.id)
+    .eq('reference_id', taskId)
+    .eq('transaction_type', 'spend')
+
+  if (error) {
+    console.error('[updateTransactionFilesByReference] 更新积分交易文件字段失败:', error)
+  }
 }
 
 function bootstrapR2(env: AiEnvBindings) {
@@ -102,7 +222,7 @@ async function getUserPoints(env: DataBaseEnvBindings, userId: string): Promise<
 /**
  * 扣除用户积分并记录交易
  */
-async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number, taskId: string, service: string, taskLabel: string): Promise<{ success: boolean, newBalance?: number }> {
+async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number, taskId: string, service: string, taskLabel: string): Promise<{ success: boolean, newBalance?: number, transactionId?: number }> {
   const supabase = createSupabaseAdminClient(env)
 
   // 先查询当前积分
@@ -139,7 +259,7 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
   }
 
   // 记录积分交易明细
-  const { error: transactionError } = await supabase
+  const { data: transactionRow, error: transactionError } = await supabase
     .from('points_transactions')
     .insert({
       profile_id: profileData.id,
@@ -150,13 +270,15 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
       reference_id: taskId,
       is_successful: true, // 初始标记为成功，如果后续任务失败会更新
     })
+    .select('id')
+    .single()
 
   if (transactionError) {
     console.error(`[deductUserPoints][${service}] 记录积分交易失败:`, transactionError)
     // 交易记录失败不影响积分扣除操作
   }
 
-  return { success: true, newBalance }
+  return { success: true, newBalance, transactionId: transactionRow?.id }
 }
 
 /**
@@ -239,6 +361,9 @@ ai.post('/reduce-task', async (c) => {
     // 获取当前用户信息（从认证中间件设置）
     const userId = c.get('userId')
     const username = c.get('username')
+    const r2Client = c.get('r2Client')
+    const r2Config = c.get('r2Config')
+    const r2Resources: R2Resources | null = r2Client && r2Config ? { client: r2Client, config: r2Config } : null
 
     console.log(`[ai-reduce-task] 用户 ${username}(${userId}) 提交降重/降AI率任务`)
 
@@ -376,6 +501,20 @@ ai.post('/reduce-task', async (c) => {
       // 扣除积分失败不应该影响用户的任务结果，记录日志即可
       // 但是需要在任务结果查询时标记为失败
     }
+    else if (deductResult.transactionId && r2Resources) {
+      const inputUrl = await tryUploadTaskSnapshot(r2Resources, {
+        userId,
+        taskId: result.taskId,
+        variant: 'input',
+        content: text,
+      })
+
+      if (inputUrl) {
+        await updateTransactionFilesById(c.env, deductResult.transactionId, {
+          user_input_file_url: inputUrl,
+        })
+      }
+    }
 
     return c.json(createSuccessResponse({
       ...result,
@@ -424,6 +563,9 @@ ai.post('/result', async (c) => {
     // 获取当前用户信息（从认证中间件设置）
     const userId = c.get('userId')
     const username = c.get('username')
+    const r2Client = c.get('r2Client')
+    const r2Config = c.get('r2Config')
+    const r2Resources: R2Resources | null = r2Client && r2Config ? { client: r2Client, config: r2Config } : null
 
     console.log(`[ai-result] 用户 ${username}(${userId}) 查询AI处理结果`)
 
@@ -492,6 +634,21 @@ ai.post('/result', async (c) => {
         await markTaskAsFailed(c.env, userId, taskId, 'cheeyuan')
       }
 
+      if (status === 'completed' && data.resulttext && r2Resources) {
+        const outputUrl = await tryUploadTaskSnapshot(r2Resources, {
+          userId,
+          taskId,
+          variant: 'output',
+          content: data.resulttext,
+        })
+
+        if (outputUrl) {
+          await updateTransactionFilesByReference(c.env, userId, taskId, {
+            ai_response_file_url: outputUrl,
+          })
+        }
+      }
+
       return c.json(createSuccessResponse({
         status,
         progress: status === 'completed' ? 100 : (status === 'failed' ? 0 : 0),
@@ -536,6 +693,21 @@ ai.post('/result', async (c) => {
 
       // 处理可能的直接结果格式
       if (result.result && typeof result.result === 'string') {
+        if (r2Resources) {
+          const outputUrl = await tryUploadTaskSnapshot(r2Resources, {
+            userId,
+            taskId,
+            variant: 'output',
+            content: result.result,
+          })
+
+          if (outputUrl) {
+            await updateTransactionFilesByReference(c.env, userId, taskId, {
+              ai_response_file_url: outputUrl,
+            })
+          }
+        }
+
         return c.json(createSuccessResponse({
           status: 'completed',
           progress: 100,
