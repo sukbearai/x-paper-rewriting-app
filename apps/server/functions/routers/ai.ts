@@ -117,20 +117,35 @@ function buildTransactionFileUpdate(update: TransactionFileUpdate): Record<strin
   return payload
 }
 
-async function updateTransactionFilesById(env: DataBaseEnvBindings, transactionId: number, update: TransactionFileUpdate): Promise<void> {
+async function updateTransactionFilesById(env: DataBaseEnvBindings, transactionId: number | string, update: TransactionFileUpdate): Promise<boolean> {
   const payload = buildTransactionFileUpdate(update)
 
   if (Object.keys(payload).length === 0)
-    return
+    return false
 
   const supabase = createSupabaseAdminClient(env)
-  const { error } = await supabase
-    .from('points_transactions')
-    .update(payload)
-    .eq('id', transactionId)
 
-  if (error) {
-    console.error('[updateTransactionFilesById] 更新积分交易文件字段失败:', error)
+  // Ensure we compare using a numeric id when possible
+  const idToMatch = typeof transactionId === 'number' ? transactionId : Number(transactionId)
+
+  try {
+    const { data, error } = await supabase
+      .from('points_transactions')
+      .update(payload)
+      .eq('id', idToMatch)
+
+    if (error) {
+      console.error('[updateTransactionFilesById] 更新积分交易文件字段失败:', error)
+      return false
+    }
+
+    // Log success for debugging (can be removed later)
+    console.log('[updateTransactionFilesById] 更新成功, id=', idToMatch, 'payload=', payload, 'rows=', JSON.stringify(data))
+    return true
+  }
+  catch (err) {
+    console.error('[updateTransactionFilesById] 异常:', err)
+    return false
   }
 }
 
@@ -278,7 +293,11 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
     // 交易记录失败不影响积分扣除操作
   }
 
-  return { success: true, newBalance, transactionId: transactionRow?.id }
+  // Normalize transaction id to number when possible
+  const returnedId = transactionRow?.id
+  const numericId = typeof returnedId === 'number' ? returnedId : (returnedId ? Number(returnedId) : undefined)
+
+  return { success: true, newBalance, transactionId: numericId }
 }
 
 /**
@@ -510,9 +529,16 @@ ai.post('/reduce-task', async (c) => {
       })
 
       if (inputUrl) {
-        await updateTransactionFilesById(c.env, deductResult.transactionId, {
+        const ok = await updateTransactionFilesById(c.env, deductResult.transactionId, {
           user_input_file_url: inputUrl,
         })
+
+        // If updating by ID failed (e.g. transaction id not returned), try updating by reference
+        if (!ok) {
+          await updateTransactionFilesByReference(c.env, userId, result.taskId, {
+            user_input_file_url: inputUrl,
+          })
+        }
       }
     }
 
