@@ -26,7 +26,7 @@ function ensureClient(env: R2EnvBindings) {
   }
 
   if (!cachedClient || !cachedConfig) {
-    throw new Error('R2 客户端初始化失败')
+    throw new Error('R2 客户端初始化失败！')
   }
 
   return { client: cachedClient, config: cachedConfig }
