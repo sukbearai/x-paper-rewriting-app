@@ -5,11 +5,58 @@ import { authMiddleware } from '../middleware/auth'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseAdminClient } from '@/utils/db'
+import {
+  createR2Client,
+  resolveR2Config,
+} from '@/utils/r2'
+import type { R2EnvBindings, R2ResolvedConfig } from '@/utils/r2'
+
+type AiEnvBindings = DataBaseEnvBindings & R2EnvBindings
+type AiVariables = Variables & AuthVariables & {
+  r2Client?: ReturnType<typeof createR2Client>
+  r2Config?: R2ResolvedConfig
+}
 
 const ai = new Hono<{
-  Bindings: DataBaseEnvBindings
-  Variables: Variables & AuthVariables
+  Bindings: AiEnvBindings
+  Variables: AiVariables
 }>()
+
+let cachedR2Client: ReturnType<typeof createR2Client> | null = null
+let cachedR2Config: R2ResolvedConfig | null = null
+let cachedR2Signature: string | null = null
+let r2BootstrapFailed = false
+
+function ensureR2Resources(env: AiEnvBindings) {
+  const resolved = resolveR2Config(env)
+  const signature = JSON.stringify(resolved)
+
+  if (!cachedR2Client || !cachedR2Config || cachedR2Signature !== signature) {
+    cachedR2Client = createR2Client(resolved)
+    cachedR2Config = resolved
+    cachedR2Signature = signature
+  }
+
+  if (!cachedR2Client || !cachedR2Config) {
+    throw new Error('[ai][r2] Failed to initialize client')
+  }
+
+  return { client: cachedR2Client, config: cachedR2Config }
+}
+
+function bootstrapR2(env: AiEnvBindings) {
+  if (r2BootstrapFailed)
+    return null
+
+  try {
+    return ensureR2Resources(env)
+  }
+  catch (error) {
+    r2BootstrapFailed = true
+    console.error('[ai][r2] 初始化 R2 客户端失败:', error)
+    return null
+  }
+}
 
 // 任务消耗积分配置
 const POINTS_PER_1000_CHARS = 3 // 每1000字消耗3积分
@@ -147,6 +194,17 @@ async function markTaskAsFailed(env: DataBaseEnvBindings, userId: string, taskId
 
 // 应用认证中间件到所有路由
 ai.use('*', authMiddleware)
+
+ai.use('*', async (c, next) => {
+  const r2Resources = bootstrapR2(c.env)
+
+  if (r2Resources) {
+    c.set('r2Client', r2Resources.client)
+    c.set('r2Config', r2Resources.config)
+  }
+
+  await next()
+})
 
 /**
  * POST /ai/reduce-task
