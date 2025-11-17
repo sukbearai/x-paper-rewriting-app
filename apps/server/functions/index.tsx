@@ -7,6 +7,13 @@ import { ai, otp, points, sms, user } from './routers/index'
 
 const app = new Hono().basePath('/')
 
+// Register route modules
+app.route('/user', user)
+app.route('/sms', sms)
+app.route('/otp', otp)
+app.route('/ai', ai)
+app.route('/points', points)
+
 app.use('*', cors({
   origin: origin => origin, // 回显请求头里的 Origin
   credentials: true, // 允许携带凭证
@@ -16,13 +23,6 @@ app.use('*', cors({
 
 // External token bootstrap
 app.use('*', externalTokenMiddleware)
-
-// Register route modules
-app.route('/user', user)
-app.route('/sms', sms)
-app.route('/otp', otp)
-app.route('/ai', ai)
-app.route('/points', points)
 
 // IP restriction middleware (optional)
 // app.use(
