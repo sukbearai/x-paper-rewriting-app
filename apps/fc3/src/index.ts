@@ -1,3 +1,4 @@
+// supabase auth hook adapter for Alibaba Cloud Function Compute 3.x
 import { Webhook } from 'standardwebhooks'
 import { Hono } from 'hono'
 import { handle } from 'hono-alibaba-cloud-fc3-adapter'
@@ -69,8 +70,8 @@ function createErrorResponse(message: string, code?: number, details?: unknown) 
     error: {
       code: code || 500,
       message,
-      ...(details ? { details } : {})
-    }
+      ...(details ? { details } : {}),
+    },
   }
 }
 
@@ -78,7 +79,7 @@ function createSuccessResponse(data?: unknown, message?: string) {
   return {
     success: true,
     message: message || '操作成功',
-    data
+    data,
   }
 }
 
