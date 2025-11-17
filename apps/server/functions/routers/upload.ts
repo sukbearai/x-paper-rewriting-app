@@ -32,22 +32,7 @@ function ensureClient(env: R2EnvBindings) {
   return { client: cachedClient, config: cachedConfig }
 }
 
-storage.get('/health', (c) => {
-  try {
-    const { config } = ensureClient(c.env)
-
-    return c.json(createSuccessResponse({
-      endpoint: config.endpoint,
-      bucket: config.bucket,
-    }, 'R2 配置正常'))
-  }
-  catch (error) {
-    const message = error instanceof Error ? error.message : 'R2 配置错误'
-    return c.json(createErrorResponse(message, 500), 500)
-  }
-})
-
-storage.post('/test-upload', async (c) => {
+storage.post('/', async (c) => {
   try {
     const { client, config } = ensureClient(c.env)
     const body = await c.req.parseBody()
@@ -106,7 +91,7 @@ storage.post('/test-upload', async (c) => {
       size: file.size as number,
       type: file.type as string,
       url: publicUrl,
-    }, '测试上传成功'))
+    }, '上传成功'))
   }
   catch (error) {
     const message = error instanceof Error ? error.message : '上传失败'
