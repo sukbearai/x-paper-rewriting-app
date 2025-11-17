@@ -5,11 +5,47 @@ import { authMiddleware } from '../middleware/auth'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
 import type { DataBaseEnvBindings } from '@/utils/db'
 import { createSupabaseAdminClient } from '@/utils/db'
+import type { R2EnvBindings, R2ResolvedConfig } from '@/utils/r2'
+import {
+  createPublicUrl,
+  createR2Client,
+  createR2ObjectKey,
+  resolveR2Config,
+  uploadR2Object,
+} from '@/utils/r2'
+
+type AiEnvBindings = DataBaseEnvBindings & R2EnvBindings
+type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>
+
+const textEncoder = new TextEncoder()
 
 const ai = new Hono<{
-  Bindings: DataBaseEnvBindings
+  Bindings: AiEnvBindings
   Variables: Variables & AuthVariables
 }>()
+
+interface CachedR2Resources {
+  client: ReturnType<typeof createR2Client>
+  config: R2ResolvedConfig
+  signature: string
+}
+
+let cachedR2Resources: CachedR2Resources | null = null
+
+function ensureR2Resources(env: AiEnvBindings): CachedR2Resources {
+  const resolved = resolveR2Config(env)
+  const signature = JSON.stringify(resolved)
+
+  if (!cachedR2Resources || cachedR2Resources.signature !== signature) {
+    cachedR2Resources = {
+      client: createR2Client(resolved),
+      config: resolved,
+      signature,
+    }
+  }
+
+  return cachedR2Resources
+}
 
 // 任务消耗积分配置
 const POINTS_PER_1000_CHARS = 3 // 每1000字消耗3积分
@@ -31,6 +67,119 @@ function calculateTaskCost(textLength: number): number {
   // 每1000字消耗3积分，按实际字数比例计算，保留3位小数不四舍五入
   const cost = (textLength / 1000) * POINTS_PER_1000_CHARS
   return Math.trunc(cost * 1000) / 1000 // 保留3位小数，截取而不四舍五入
+}
+
+interface UploadArtifactOptions {
+  userId: string
+  username?: string
+  taskId: string
+  service: string
+  taskLabel: string
+  artifactType: 'input' | 'output'
+  content: string
+}
+
+async function uploadAiArtifact(env: AiEnvBindings, options: UploadArtifactOptions): Promise<string> {
+  const { client, config } = ensureR2Resources(env)
+  const key = createR2ObjectKey(
+    `${options.artifactType}.txt`,
+    { prefix: `ai-tasks/${options.userId}/${options.taskId}` },
+  )
+
+  await uploadR2Object(client, {
+    bucket: config.bucket,
+    key,
+    body: textEncoder.encode(options.content),
+    contentType: 'text/plain; charset=utf-8',
+    metadata: {
+      artifact_type: options.artifactType,
+      service: options.service,
+      task_label: options.taskLabel,
+      username: options.username ?? '',
+      task_id: options.taskId,
+    },
+  })
+
+  const publicUrl = createPublicUrl(config, key)
+  if (!publicUrl) {
+    throw new Error('R2_PUBLIC_URL 未配置，无法生成文件访问地址')
+  }
+
+  return publicUrl
+}
+
+async function fetchProfileId(client: SupabaseAdminClient, userId: string): Promise<number | null> {
+  const { data, error } = await client
+    .from('profiles')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error('[fetchProfileId] 获取用户档案失败:', error)
+    return null
+  }
+
+  return data.id
+}
+
+async function updateTransactionRecord(env: AiEnvBindings, userId: string, taskId: string, fields: Record<string, unknown>): Promise<void> {
+  const supabase = createSupabaseAdminClient(env)
+  const profileId = await fetchProfileId(supabase, userId)
+
+  if (!profileId)
+    return
+
+  const { error } = await supabase
+    .from('points_transactions')
+    .update(fields)
+    .eq('profile_id', profileId)
+    .eq('reference_id', taskId)
+    .eq('transaction_type', 'spend')
+
+  if (error) {
+    console.error('[updateTransactionRecord] 更新积分交易失败:', error)
+  }
+}
+
+async function hasAiResponseStored(env: AiEnvBindings, userId: string, taskId: string): Promise<boolean> {
+  const supabase = createSupabaseAdminClient(env)
+  const profileId = await fetchProfileId(supabase, userId)
+
+  if (!profileId)
+    return false
+
+  const { data, error } = await supabase
+    .from('points_transactions')
+    .select('ai_response_file_url')
+    .eq('profile_id', profileId)
+    .eq('reference_id', taskId)
+    .eq('transaction_type', 'spend')
+    .maybeSingle()
+
+  if (error) {
+    console.error('[hasAiResponseStored] 查询积分交易失败:', error)
+    return false
+  }
+
+  if (!data)
+    return false
+
+  return Boolean(data.ai_response_file_url)
+}
+
+async function persistAiResponseIfNeeded(env: AiEnvBindings, options: Omit<UploadArtifactOptions, 'artifactType'>): Promise<string | null> {
+  const alreadyStored = await hasAiResponseStored(env, options.userId, options.taskId)
+  if (alreadyStored)
+    return null
+
+  const url = await uploadAiArtifact(env, {
+    ...options,
+    artifactType: 'output',
+  })
+
+  await updateTransactionRecord(env, options.userId, options.taskId, { ai_response_file_url: url })
+  return url
 }
 
 /**
@@ -55,7 +204,11 @@ async function getUserPoints(env: DataBaseEnvBindings, userId: string): Promise<
 /**
  * 扣除用户积分并记录交易
  */
-async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points: number, taskId: string, service: string, taskLabel: string): Promise<{ success: boolean, newBalance?: number }> {
+interface DeductPointOptions {
+  userInputUrl?: string
+}
+
+async function deductUserPoints(env: AiEnvBindings, userId: string, points: number, taskId: string, service: string, taskLabel: string, options: DeductPointOptions = {}): Promise<{ success: boolean, newBalance?: number }> {
   const supabase = createSupabaseAdminClient(env)
 
   // 先查询当前积分
@@ -65,14 +218,10 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
   }
 
   // 获取profile_id
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', userId)
-    .single()
+  const profileId = await fetchProfileId(supabase, userId)
 
-  if (profileError || !profileData) {
-    console.error(`[deductUserPoints][${service}] 获取用户档案失败:`, profileError)
+  if (!profileId) {
+    console.error(`[deductUserPoints][${service}] 获取用户档案失败`)
     return { success: false }
   }
 
@@ -95,13 +244,14 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
   const { error: transactionError } = await supabase
     .from('points_transactions')
     .insert({
-      profile_id: profileData.id,
+      profile_id: profileId,
       transaction_type: 'spend',
       amount: -points,
       balance_after: newBalance,
       description: taskLabel,
       reference_id: taskId,
       is_successful: true, // 初始标记为成功，如果后续任务失败会更新
+      user_input_file_url: options.userInputUrl ?? null,
     })
 
   if (transactionError) {
@@ -115,34 +265,9 @@ async function deductUserPoints(env: DataBaseEnvBindings, userId: string, points
 /**
  * 更新任务状态为失败
  */
-async function markTaskAsFailed(env: DataBaseEnvBindings, userId: string, taskId: string, service: string): Promise<void> {
-  const supabase = createSupabaseAdminClient(env)
-
-  // 获取profile_id
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', userId)
-    .single()
-
-  if (profileError || !profileData) {
-    console.error(`[markTaskAsFailed][${service}] 获取用户档案失败:`, profileError)
-    return
-  }
-
-  // 更新交易记录为失败
-  const { error: updateError } = await supabase
-    .from('points_transactions')
-    .update({
-      is_successful: false,
-    })
-    .eq('profile_id', profileData.id)
-    .eq('reference_id', taskId)
-    .eq('transaction_type', 'spend')
-
-  if (updateError) {
-    console.error(`[markTaskAsFailed][${service}] 更新交易记录失败:`, updateError)
-  }
+async function markTaskAsFailed(env: AiEnvBindings, userId: string, taskId: string, service: string): Promise<void> {
+  console.warn(`[markTaskAsFailed][${service}] 将任务 ${taskId} 标记为失败`)
+  await updateTransactionRecord(env, userId, taskId, { is_successful: false })
 }
 
 // 应用认证中间件到所有路由
@@ -223,7 +348,11 @@ ai.post('/reduce-task', async (c) => {
     // 根据平台和类型选择服务
     const service = taskPlatform === 'zhiwang' && taskType === 'reduce-ai-rate' ? 'cheeyuan' : 'reduceai'
 
-    let result: any
+    let result: {
+      taskId: string
+      service: 'cheeyuan' | 'reduceai'
+      newBalance?: number
+    }
 
     if (service === 'cheeyuan') {
       // CHEEYUAN处理知网降AI率
@@ -259,7 +388,7 @@ ai.post('/reduce-task', async (c) => {
       }
 
       result = {
-        taskId: cheeyuanResult?.data?.toString(),
+        taskId: cheeyuanResult.data.toString(),
         service: 'cheeyuan',
       }
     }
@@ -311,8 +440,21 @@ ai.post('/reduce-task', async (c) => {
       }
     }
 
+    // 将用户输入文本存储到 R2，并记录访问地址
+    const userInputUrl = await uploadAiArtifact(c.env, {
+      artifactType: 'input',
+      content: text,
+      service,
+      taskId: result.taskId,
+      taskLabel,
+      userId,
+      username,
+    })
+
     // 只有在AI服务成功返回结果后才扣除用户积分
-    const deductResult = await deductUserPoints(c.env, userId, taskCost, result.taskId, service, taskLabel)
+    const deductResult = await deductUserPoints(c.env, userId, taskCost, result.taskId, service, taskLabel, {
+      userInputUrl,
+    })
     if (!deductResult.success) {
       console.error('[ai-reduce-task] 扣除积分失败，但任务已提交成功')
       // 扣除积分失败不应该影响用户的任务结果，记录日志即可
@@ -434,6 +576,17 @@ ai.post('/result', async (c) => {
         await markTaskAsFailed(c.env, userId, taskId, 'cheeyuan')
       }
 
+      if (status === 'completed' && data.resulttext) {
+        await persistAiResponseIfNeeded(c.env, {
+          content: data.resulttext,
+          service: 'cheeyuan',
+          taskId,
+          taskLabel: 'AI处理结果',
+          userId,
+          username,
+        })
+      }
+
       return c.json(createSuccessResponse({
         status,
         progress: status === 'completed' ? 100 : (status === 'failed' ? 0 : 0),
@@ -478,6 +631,15 @@ ai.post('/result', async (c) => {
 
       // 处理可能的直接结果格式
       if (result.result && typeof result.result === 'string') {
+        await persistAiResponseIfNeeded(c.env, {
+          content: result.result,
+          service: 'reduceai',
+          taskId,
+          taskLabel: 'AI处理结果',
+          userId,
+          username,
+        })
+
         return c.json(createSuccessResponse({
           status: 'completed',
           progress: 100,

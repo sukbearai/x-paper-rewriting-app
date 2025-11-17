@@ -9,7 +9,7 @@ import {
 } from '@/utils/r2'
 import type { R2EnvBindings, R2ResolvedConfig } from '@/utils/r2'
 
-const storage = new Hono<{ Bindings: R2EnvBindings }>()
+const upload = new Hono<{ Bindings: R2EnvBindings }>()
 
 let cachedClient: ReturnType<typeof createR2Client> | null = null
 let cachedConfig: R2ResolvedConfig | null = null
@@ -32,7 +32,7 @@ function ensureClient(env: R2EnvBindings) {
   return { client: cachedClient, config: cachedConfig }
 }
 
-storage.post('/', async (c) => {
+upload.post('/', async (c) => {
   try {
     const { client, config } = ensureClient(c.env)
     const body = await c.req.parseBody()
@@ -99,4 +99,4 @@ storage.post('/', async (c) => {
   }
 })
 
-export default storage
+export default upload
