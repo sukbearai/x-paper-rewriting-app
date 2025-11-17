@@ -1,3 +1,4 @@
+// supabase auth hook
 import { Webhook } from 'standardwebhooks'
 import { type Context, Hono } from 'hono'
 import { createErrorResponse, createSuccessResponse } from '@/utils/response'
