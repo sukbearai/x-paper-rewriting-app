@@ -8,7 +8,7 @@ import { ai, otp, points, sms, user } from './routers/index'
 const app = new Hono().basePath('/')
 
 app.use('*', cors({
-  origin: origin => origin ?? '*', // 回显请求头里的 Origin；空值时回退
+  origin: ['https://paper.congrongtech.cn', 'http://localhost:5173/'], // 回显请求头里的 Origin；空值时回退
   credentials: true, // 允许携带凭证
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
