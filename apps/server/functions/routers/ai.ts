@@ -190,16 +190,16 @@ interface CombinedSnapshotDetails {
 }
 
 function buildCombinedSnapshotDocument(details: CombinedSnapshotDetails): string {
-  const header = [
-    `Task ID: ${details.taskId}`,
-    `User ID: ${details.userId}`,
-    `Username: ${details.username ?? 'unknown'}`,
-    `Service: ${details.service ?? 'unknown'}`,
-    `Platform: ${details.platform ?? 'unknown'}`,
-    `Type: ${details.type ?? 'unknown'}`,
-    `Created At: ${details.createdAt ?? 'unknown'}`,
-    `Completed At: ${details.completedAt ?? new Date().toISOString()}`,
-  ]
+  // const header = [
+  //   `Task ID: ${details.taskId}`,
+  //   `User ID: ${details.userId}`,
+  //   `Username: ${details.username ?? 'unknown'}`,
+  //   `Service: ${details.service ?? 'unknown'}`,
+  //   `Platform: ${details.platform ?? 'unknown'}`,
+  //   `Type: ${details.type ?? 'unknown'}`,
+  //   `Created At: ${details.createdAt ?? 'unknown'}`,
+  //   `Completed At: ${details.completedAt ?? new Date().toISOString()}`,
+  // ]
 
   const userInput = details.inputText && details.inputText.trim().length > 0 ? details.inputText : '(empty)'
   const aiOutput = details.resultText && details.resultText.trim().length > 0 ? details.resultText : '(empty)'
