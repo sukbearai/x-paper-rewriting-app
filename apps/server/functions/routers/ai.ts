@@ -520,7 +520,7 @@ ai.post('/reduce-task', async (c) => {
       // 扣除积分失败不应该影响用户的任务结果，记录日志即可
       // 但是需要在任务结果查询时标记为失败
     }
-    else if (deductResult.transactionId && r2Resources) {
+    else if (r2Resources) {
       const inputUrl = await tryUploadTaskSnapshot(r2Resources, {
         userId,
         taskId: result.taskId,
@@ -529,12 +529,15 @@ ai.post('/reduce-task', async (c) => {
       })
 
       if (inputUrl) {
-        const ok = await updateTransactionFilesById(c.env, deductResult.transactionId, {
-          user_input_file_url: inputUrl,
-        })
+        let updated = false
 
-        // If updating by ID failed (e.g. transaction id not returned), try updating by reference
-        if (!ok) {
+        if (deductResult.transactionId) {
+          updated = await updateTransactionFilesById(c.env, deductResult.transactionId, {
+            user_input_file_url: inputUrl,
+          })
+        }
+
+        if (!updated) {
           await updateTransactionFilesByReference(c.env, userId, result.taskId, {
             user_input_file_url: inputUrl,
           })
