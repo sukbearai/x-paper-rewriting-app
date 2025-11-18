@@ -205,12 +205,12 @@ function buildCombinedSnapshotDocument(details: CombinedSnapshotDetails): string
   const aiOutput = details.resultText && details.resultText.trim().length > 0 ? details.resultText : '(empty)'
 
   return [
-    ...header,
+    // ...header,
     '',
-    '=== User Input ===',
+    '原文',
     userInput,
     '',
-    '=== AI Output ===',
+    '结果',
     aiOutput,
   ].join('\n')
 }
