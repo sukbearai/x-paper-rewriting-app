@@ -206,10 +206,12 @@ function buildCombinedSnapshotDocument(details: CombinedSnapshotDetails): string
 
   return [
     // ...header,
-    '输入原文',
+    '---------------------输入原文--------------------',
+    '',
     userInput,
     '',
-    '改写结果',
+    '---------------------AI改写结果--------------------',
+    '',
     aiOutput,
   ].join('\n')
 }
