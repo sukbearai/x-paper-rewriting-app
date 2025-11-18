@@ -849,7 +849,7 @@ curl -X POST https://rewriting.congrongtech.cn/user/change-password \
 
 **端点**: `POST /ai/reduce-task`
 
-**描述**: 提交降重或降AI率任务，支持知网和维普平台。需要用户登录认证，按文本长度动态计算积分消耗。
+**描述**: 提交降重或降AI率任务，支持知网和维普平台。需要用户登录认证，按文本长度动态计算积分消耗，并会基于平台和任务类型自动切换上游 AI 服务。
 
 **请求头**:
 ```
@@ -870,6 +870,17 @@ Authorization: Bearer <access_token>
 - `text` (必需): 待处理的文本内容，最多3000字
 - `platform` (必需): 平台选择，支持 `zhiwang`（知网）和 `weipu`（维普）
 - `type` (必需): 处理类型，支持 `reduce-plagiarism`（降重）和 `reduce-ai-rate`（降AI率）
+
+**服务路由策略**:
+
+| platform | type | `service` 字段 | REDUCEAI `toolName` / CHEEYUAN `product_type` |
+| --- | --- | --- | --- |
+| `zhiwang` | `reduce-plagiarism` | `reduceai` | `onlyjc`
+| `zhiwang` | `reduce-ai-rate` | `cheeyuan` | `78` (固定 product_type)
+| `weipu` | `reduce-plagiarism` | `reduceai` | `onlyjc`
+| `weipu` | `reduce-ai-rate` | `reduceai` | `onlyai`
+
+> 客户端无需关心上游具体实现，按平台+类型组合传参即可。
 
 **积分说明**:
 - 每1000字消耗3积分，按实际字数比例计算
@@ -940,9 +951,10 @@ curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
 ```
 
 **说明**:
-- 积分会在任务成功提交到AI服务后扣除，并在积分交易记录中标记
-- 如果AI服务返回错误，任务会被标记为失败，积分交易记录也会相应更新为失败状态
-- 任务失败时对应的积分交易记录的`is_successful`字段会被设置为`false`
+- 只有当上游服务确认接单后才会扣除积分，并在 `points_transactions` 表新增一条 `spend` 记录
+- 积分交易会记录人类可读的任务标签（如“降重（知网版）”），方便运营侧排查
+- 若启用了 R2（生产环境默认开启），系统会把原始文本上传为 `user_input_file_url`，上游返回文本上传为 `ai_response_file_url`
+- 上游若返回错误或后续查询失败，会把对应交易标记为 `is_successful=false`，可配合 `POST /points/refund` 做人工返还
 
 **错误响应**:
 - **HTTP 401 - 未授权访问**:
@@ -1012,7 +1024,7 @@ curl -X POST https://rewriting.congrongtech.cn/ai/reduce-task \
 
 **端点**: `POST /ai/result`
 
-**描述**: 查询降重或降AI率任务的处理结果。需要用户登录认证。
+**描述**: 查询降重或降AI率任务的处理结果。需要用户登录认证，会根据 `service` 字段自动调用 REDUCEAI 或 CHEEYUAN，并把最新状态返回给客户端。
 
 **请求头**:
 ```
@@ -1055,7 +1067,7 @@ curl -X POST https://rewriting.congrongtech.cn/ai/result \
 
 **成功响应 (HTTP 200)**:
 
-REDUCEAI服务处理中响应:
+REDUCEAI服务处理中响应（包括上游短暂不可用时返回的占位结果）:
 ```json
 {
   "code": 0,
@@ -1071,7 +1083,7 @@ REDUCEAI服务处理中响应:
 }
 ```
 
-REDUCEAI服务完成响应:
+REDUCEAI服务完成响应（若 `result` 是字符串会触发 R2 输出快照上传）:
 ```json
 {
   "code": 0,
@@ -1150,8 +1162,10 @@ CHEEYUAN服务失败响应:
 ```
 
 **说明**:
-- 如果任务状态为"failed"，对应的积分交易记录会被标记为失败(is_successful=false)
-- REDUCEAI服务可能直接返回失败状态，CHEEYUAN服务通过deal_status=2判断失败
+- REDUCEAI 查询若出现 HTTP 错误，会返回 `status="processing"` 的占位数据，前端可稍后重试
+- 当任务状态为 `failed` 时，系统会自动把对应的积分交易更新为 `is_successful=false`
+- 拿到完整结果文本时，会把内容上传到 R2 并写入 `points_transactions.ai_response_file_url`
+- CHEEYUAN 通过 `deal_status` 来区分状态：`1` 成功、`2` 失败、其他为处理中
 
 **错误响应**:
 - **HTTP 401 - 未授权访问**:
@@ -1204,7 +1218,7 @@ CHEEYUAN服务失败响应:
 
 **端点**: `POST /ai/points`
 
-**描述**: 查询当前用户的积分余额和积分计费规则。需要用户登录认证。
+**描述**: 查询当前用户的积分余额和积分计费规则。需要用户登录认证，返回值与扣费逻辑共用同一套配置，适合在前端实时展示。
 
 **请求头**:
 ```
@@ -1264,12 +1278,10 @@ curl -X POST https://rewriting.congrongtech.cn/ai/points \
   ```
 
 **说明**:
-- `points_balance`: 用户当前积分余额
-- `task_cost`: 每1000字消耗的积分数（固定3积分）
-- `cost_per_1000_chars`: 每1000字的积分消耗
-- 积分按实际字数比例计算，结果保留3位小数，截取而不四舍五入
-- 可以在提交任务前调用此接口检查积分是否足够
-- 失败任务的积分不会自动退还，但对应的交易记录会被标记为失败(is_successful=false)
+- `points_balance`: 当前积分余额，服务端统一截取三位小数
+- `task_cost` 与 `cost_per_1000_chars` 均来源于后端常量 `POINTS_PER_1000_CHARS`（目前为 3）
+- 前端可用 `points_balance` 与 `task_cost` 计算某段文字的预计消耗（同 `calculateTaskCost` 逻辑）
+- 若任务失败积分不会自动返还，但会把交易标记为 `is_successful=false`，可配合返还接口处理
 
 ---
 
@@ -1580,6 +1592,8 @@ curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=
   - `balance_after`: 交易后的余额
   - `description`: 交易描述
   - `reference_id`: 关联的参考ID（如任务ID）
+  - `user_input_file_url`: AI 任务原始输入文本的快照链接（仅降重/降AI率任务会写入，可能为 `null`）
+  - `ai_response_file_url`: AI 任务返回文本的快照链接（仅当上游返回完整文本时写入，可能为 `null`）
   - `is_successful`: 交易是否成功
   - `created_at`: 创建时间
 - `pagination`: 分页信息
@@ -1666,6 +1680,7 @@ curl -X GET "https://rewriting.congrongtech.cn/points/transactions?page=1&limit=
 - 支持按交易类型和时间范围进行筛选
 - 分页查询可以提高大数据量时的查询性能
 - 交易金额正数表示收入，负数表示支出
+- 当交易关联 AI 任务且启用了 R2 快照上传时，会返回 `user_input_file_url` 与 `ai_response_file_url`，可用于在运营或客服后台查看原始/处理文本
 
 ---
 
