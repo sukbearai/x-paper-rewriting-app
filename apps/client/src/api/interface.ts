@@ -179,6 +179,8 @@ export interface PointsTransaction {
   balance_after: number
   description: string
   reference_id?: string | null
+  user_input_file_url?: string | null
+  ai_response_file_url?: string | null
   is_successful: boolean
   created_at: string
 }

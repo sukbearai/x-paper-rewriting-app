@@ -80,7 +80,8 @@ const spendColumns = [
   { prop: 'id', label: 'ID', width: 80 },
   { prop: 'amount', label: '消耗积分', width: 120, slot: 'amount' },
   { prop: 'balance_after', label: '变动后余额', width: 140, slot: 'balance' },
-  { prop: 'description', label: '说明', minWidth: 280, slot: 'description' },
+  { prop: 'description', label: '说明', minWidth: 220, slot: 'description' },
+  { prop: 'attachments', label: '原文/结果', minWidth: 260, slot: 'attachments' },
   { prop: 'is_successful', label: '状态', minWidth: 200, slot: 'status' },
   { prop: 'created_at', label: '创建时间', width: 200, slot: 'createdAt' },
 ]
@@ -94,6 +95,50 @@ function formatPointsValue(value: number | string | null | undefined) {
     ? Math.floor(numeric * factor) / factor
     : Math.ceil(numeric * factor) / factor
   return truncated.toFixed(3)
+}
+
+function buildSnapshotFileName(transactionId: number, variant: 'input' | 'output') {
+  const suffix = variant === 'input' ? 'input' : 'result'
+  return `transaction-${transactionId}-${suffix}.txt`
+}
+
+function openSnapshotInNewTab(url?: string | null) {
+  if (!url) {
+    ElMessage.warning('链接暂不可用')
+    return
+  }
+
+  window.open(url, '_blank', 'noopener')
+}
+
+async function downloadSnapshot(row: PointsTransaction, variant: 'input' | 'output') {
+  const url = variant === 'input' ? row.user_input_file_url : row.ai_response_file_url
+  const label = variant === 'input' ? '原文' : '结果'
+
+  if (!url) {
+    ElMessage.warning(`${label}链接暂不可用`)
+    return
+  }
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok)
+      throw new Error('下载失败')
+
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = buildSnapshotFileName(row.id, variant)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(objectUrl)
+  }
+  catch (error) {
+    console.error('[downloadSnapshot] 下载失败:', error)
+    ElMessage.error(`${label}下载失败，请稍后重试`)
+  }
 }
 
 async function fetchTransactions(type: TransactionTab) {
@@ -428,6 +473,35 @@ onMounted(() => {
             </template>
             <template #description="{ row }">
               <span class="text-gray-600">{{ row.description || '--' }}</span>
+            </template>
+            <template #attachments="{ row }">
+              <div class="flex flex-wrap gap-2">
+                <el-button
+                  v-if="row.user_input_file_url"
+                  type="text"
+                  size="small"
+                  @click="openSnapshotInNewTab(row.user_input_file_url)"
+                >
+                  查看原文
+                </el-button>
+                <el-button
+                  v-if="row.user_input_file_url"
+                  type="text"
+                  size="small"
+                  @click="downloadSnapshot(row, 'input')"
+                >
+                  下载原文
+                </el-button>
+                <el-button
+                  v-if="row.ai_response_file_url"
+                  type="text"
+                  size="small"
+                  @click="downloadSnapshot(row, 'output')"
+                >
+                  下载结果
+                </el-button>
+                <span v-if="!row.user_input_file_url && !row.ai_response_file_url" class="text-gray-400 text-sm">--</span>
+              </div>
             </template>
             <template #status="{ row }">
               <div class="flex items-center gap-2">
