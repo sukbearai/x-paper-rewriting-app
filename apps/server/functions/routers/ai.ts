@@ -36,14 +36,28 @@ let cachedR2Signature: string | null = null
 let r2BootstrapFailed = false
 
 const AI_SNAPSHOT_PREFIX = 'ai-tasks'
+const TASK_SNAPSHOT_KV_PREFIX = 'ai-task'
 
-type SnapshotVariant = 'input' | 'output'
+type SnapshotVariant = 'input' | 'output' | 'combined'
 
 interface SnapshotPayload {
   userId: string
   taskId: string
   variant: SnapshotVariant
   content: string
+}
+
+interface TaskSnapshotKV {
+  userId: string
+  taskId: string
+  service: string
+  platform?: TaskPlatform
+  type?: TaskType
+  username?: string
+  inputText?: string
+  resultText?: string
+  createdAt?: string
+  completedAt?: string
 }
 
 function ensureR2Resources(env: AiEnvBindings) {
@@ -98,6 +112,107 @@ async function tryUploadTaskSnapshot(resources: R2Resources, payload: SnapshotPa
     console.error(`[ai][r2] 上传${payload.variant}文本失败:`, error)
     return null
   }
+}
+
+function createTaskSnapshotKey(userId: string, taskId: string): string {
+  return `${TASK_SNAPSHOT_KV_PREFIX}:${sanitizePathSegment(userId)}:${sanitizePathSegment(taskId)}`
+}
+
+async function readTaskSnapshotFromKV(userId: string, taskId: string): Promise<TaskSnapshotKV | null> {
+  try {
+    const stored = await paper_rewriting_kv.get(createTaskSnapshotKey(userId, taskId))
+
+    if (!stored || typeof stored !== 'string')
+      return null
+
+    return JSON.parse(stored) as TaskSnapshotKV
+  }
+  catch (error) {
+    console.error('[ai][kv] 读取任务快照失败:', error)
+    return null
+  }
+}
+
+async function saveTaskSnapshotToKV(snapshot: TaskSnapshotKV): Promise<void> {
+  try {
+    await paper_rewriting_kv.put(createTaskSnapshotKey(snapshot.userId, snapshot.taskId), JSON.stringify(snapshot))
+  }
+  catch (error) {
+    console.error('[ai][kv] 保存任务快照失败:', error)
+  }
+}
+
+async function writeTaskSnapshotResult(userId: string, taskId: string, resultText: string): Promise<TaskSnapshotKV | null> {
+  try {
+    const existing = await readTaskSnapshotFromKV(userId, taskId)
+    const payload: TaskSnapshotKV = {
+      userId,
+      taskId,
+      service: existing?.service ?? 'unknown',
+      platform: existing?.platform,
+      type: existing?.type,
+      username: existing?.username,
+      inputText: existing?.inputText,
+      createdAt: existing?.createdAt,
+      resultText,
+      completedAt: new Date().toISOString(),
+    }
+
+    await paper_rewriting_kv.put(createTaskSnapshotKey(userId, taskId), JSON.stringify(payload))
+    return payload
+  }
+  catch (error) {
+    console.error('[ai][kv] 写入任务结果失败:', error)
+    return null
+  }
+}
+
+async function deleteTaskSnapshotFromKV(userId: string, taskId: string): Promise<void> {
+  try {
+    await paper_rewriting_kv.delete(createTaskSnapshotKey(userId, taskId))
+  }
+  catch (error) {
+    console.error('[ai][kv] 删除任务快照失败:', error)
+  }
+}
+
+interface CombinedSnapshotDetails {
+  taskId: string
+  userId: string
+  username?: string
+  service?: string
+  platform?: TaskPlatform
+  type?: TaskType
+  createdAt?: string
+  completedAt?: string
+  inputText?: string
+  resultText: string
+}
+
+function buildCombinedSnapshotDocument(details: CombinedSnapshotDetails): string {
+  const header = [
+    `Task ID: ${details.taskId}`,
+    `User ID: ${details.userId}`,
+    `Username: ${details.username ?? 'unknown'}`,
+    `Service: ${details.service ?? 'unknown'}`,
+    `Platform: ${details.platform ?? 'unknown'}`,
+    `Type: ${details.type ?? 'unknown'}`,
+    `Created At: ${details.createdAt ?? 'unknown'}`,
+    `Completed At: ${details.completedAt ?? new Date().toISOString()}`,
+  ]
+
+  const userInput = details.inputText && details.inputText.trim().length > 0 ? details.inputText : '(empty)'
+  const aiOutput = details.resultText && details.resultText.trim().length > 0 ? details.resultText : '(empty)'
+
+  return [
+    ...header,
+    '',
+    '=== User Input ===',
+    userInput,
+    '',
+    '=== AI Output ===',
+    aiOutput,
+  ].join('\n')
 }
 
 type TransactionFileUpdate = Partial<{
@@ -513,6 +628,17 @@ ai.post('/reduce-task', async (c) => {
       }
     }
 
+    await saveTaskSnapshotToKV({
+      userId,
+      username,
+      taskId: result.taskId,
+      service,
+      platform: taskPlatform,
+      type: taskType,
+      inputText: text,
+      createdAt: new Date().toISOString(),
+    })
+
     // 只有在AI服务成功返回结果后才扣除用户积分
     const deductResult = await deductUserPoints(c.env, userId, taskCost, result.taskId, service, taskLabel)
     if (!deductResult.success) {
@@ -663,18 +789,36 @@ ai.post('/result', async (c) => {
         await markTaskAsFailed(c.env, userId, taskId, 'cheeyuan')
       }
 
-      if (status === 'completed' && data.resulttext && r2Resources) {
-        const outputUrl = await tryUploadTaskSnapshot(r2Resources, {
-          userId,
-          taskId,
-          variant: 'output',
-          content: data.resulttext,
-        })
+      if (status === 'completed' && data.resulttext) {
+        const snapshot = await writeTaskSnapshotResult(userId, taskId, data.resulttext)
 
-        if (outputUrl) {
-          await updateTransactionFilesByReference(c.env, userId, taskId, {
-            ai_response_file_url: outputUrl,
+        if (r2Resources) {
+          const combinedDocument = buildCombinedSnapshotDocument({
+            taskId,
+            userId,
+            username,
+            service: snapshot?.service ?? service,
+            platform: snapshot?.platform,
+            type: snapshot?.type,
+            createdAt: snapshot?.createdAt,
+            completedAt: snapshot?.completedAt,
+            inputText: snapshot?.inputText,
+            resultText: snapshot?.resultText ?? data.resulttext,
           })
+
+          const outputUrl = await tryUploadTaskSnapshot(r2Resources, {
+            userId,
+            taskId,
+            variant: 'combined',
+            content: combinedDocument,
+          })
+
+          if (outputUrl) {
+            await updateTransactionFilesByReference(c.env, userId, taskId, {
+              ai_response_file_url: outputUrl,
+            })
+            await deleteTaskSnapshotFromKV(userId, taskId)
+          }
         }
       }
 
@@ -722,18 +866,34 @@ ai.post('/result', async (c) => {
 
       // 处理可能的直接结果格式
       if (result.result && typeof result.result === 'string') {
+        const snapshot = await writeTaskSnapshotResult(userId, taskId, result.result)
+
         if (r2Resources) {
+          const combinedDocument = buildCombinedSnapshotDocument({
+            taskId,
+            userId,
+            username,
+            service: snapshot?.service ?? service,
+            platform: snapshot?.platform,
+            type: snapshot?.type,
+            createdAt: snapshot?.createdAt,
+            completedAt: snapshot?.completedAt,
+            inputText: snapshot?.inputText,
+            resultText: snapshot?.resultText ?? result.result,
+          })
+
           const outputUrl = await tryUploadTaskSnapshot(r2Resources, {
             userId,
             taskId,
-            variant: 'output',
-            content: result.result,
+            variant: 'combined',
+            content: combinedDocument,
           })
 
           if (outputUrl) {
             await updateTransactionFilesByReference(c.env, userId, taskId, {
               ai_response_file_url: outputUrl,
             })
+            await deleteTaskSnapshotFromKV(userId, taskId)
           }
         }
 
