@@ -102,16 +102,17 @@ function buildSnapshotFileName(transactionId: number, variant: 'input' | 'output
   return `transaction-${transactionId}-${suffix}.txt`
 }
 
-function openSnapshotInNewTab(url?: string | null) {
-  if (!url) {
-    ElMessage.warning('链接暂不可用')
-    return
-  }
+// (不再使用) 直接打开新 tab 的方法已移除，改为弹窗展示以提供更好体验
 
-  window.open(url, '_blank', 'noopener')
-}
+// 弹窗查看原文/结果相关状态与方法
+const dialogVisible = ref(false)
+const dialogLoading = ref(false)
+const dialogContent = ref('')
+const dialogTitle = ref('查看文件')
+const dialogDownloadUrl = ref<string | null>(null)
+const dialogDownloadFilename = ref('file.txt')
 
-async function downloadSnapshot(row: PointsTransaction, variant: 'input' | 'output') {
+async function openSnapshotDialog(row: PointsTransaction, variant: 'input' | 'output') {
   const url = variant === 'input' ? row.user_input_file_url : row.ai_response_file_url
   const label = variant === 'input' ? '原文' : '结果'
 
@@ -120,24 +121,56 @@ async function downloadSnapshot(row: PointsTransaction, variant: 'input' | 'outp
     return
   }
 
-  try {
-    const response = await fetch(url)
-    if (!response.ok)
-      throw new Error('下载失败')
+  dialogTitle.value = `${label} — ${buildSnapshotFileName(row.id, variant)}`
+  dialogLoading.value = true
+  dialogVisible.value = true
+  dialogContent.value = ''
+  dialogDownloadUrl.value = url
+  dialogDownloadFilename.value = buildSnapshotFileName(row.id, variant)
 
-    const blob = await response.blob()
-    const objectUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = objectUrl
-    link.download = buildSnapshotFileName(row.id, variant)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(objectUrl)
+  try {
+    const resp = await fetch(url)
+    if (!resp.ok)
+      throw new Error('读取失败')
+
+    // 尝试以文本形式读取；如果是二进制文件可能得到乱码，但对于 .txt 快照这是合适的
+    const text = await resp.text()
+    dialogContent.value = text || '-- 空内容 --'
   }
-  catch (error) {
-    console.error('[downloadSnapshot] 下载失败:', error)
-    ElMessage.error(`${label}下载失败，请稍后重试`)
+  catch (err) {
+    console.error('[openSnapshotDialog] 读取失败:', err)
+    dialogContent.value = '-- 无法加载内容，请尝试下载后查看 --'
+  }
+  finally {
+    dialogLoading.value = false
+  }
+}
+
+// 从弹窗下载当前文件
+async function downloadFromDialog() {
+  if (!dialogDownloadUrl.value) {
+    ElMessage.warning('下载链接不可用')
+    return
+  }
+
+  try {
+    const resp = await fetch(dialogDownloadUrl.value)
+    if (!resp.ok)
+      throw new Error('下载失败')
+    const blob = await resp.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = dialogDownloadFilename.value
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(objectUrl)
+    ElMessage.success('开始下载')
+  }
+  catch (err) {
+    console.error('[downloadFromDialog] 下载失败:', err)
+    ElMessage.error('下载失败，请稍后重试')
   }
 }
 
@@ -480,25 +513,17 @@ onMounted(() => {
                   v-if="row.user_input_file_url"
                   type="text"
                   size="small"
-                  @click="openSnapshotInNewTab(row.user_input_file_url)"
+                  @click="openSnapshotDialog(row, 'input')"
                 >
                   查看原文
-                </el-button>
-                <el-button
-                  v-if="row.user_input_file_url"
-                  type="text"
-                  size="small"
-                  @click="downloadSnapshot(row, 'input')"
-                >
-                  下载原文
                 </el-button>
                 <el-button
                   v-if="row.ai_response_file_url"
                   type="text"
                   size="small"
-                  @click="downloadSnapshot(row, 'output')"
+                  @click="openSnapshotDialog(row, 'output')"
                 >
-                  下载结果
+                  查看结果
                 </el-button>
                 <span v-if="!row.user_input_file_url && !row.ai_response_file_url" class="text-gray-400 text-sm">--</span>
               </div>
@@ -529,6 +554,23 @@ onMounted(() => {
         </el-tab-pane>
       </el-tabs>
     </el-card>
+    <!-- 弹窗：查看原文 / 结果 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="70%" :close-on-click-modal="false">
+      <div style="min-height:220px; max-height:60vh; overflow:auto;">
+        <div v-if="dialogLoading" class="p-6 text-center">
+          加载中...
+        </div>
+        <pre v-else class="snapshot-pre">{{ dialogContent }}</pre>
+      </div>
+      <template #footer>
+        <el-button @click="dialogVisible = false">
+          关闭
+        </el-button>
+        <el-button type="primary" @click="downloadFromDialog">
+          下载
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -680,5 +722,16 @@ onMounted(() => {
   .usage-item {
     padding: 8px 12px;
   }
+}
+
+.snapshot-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  color: #333;
+  font-size: 13px;
 }
 </style>

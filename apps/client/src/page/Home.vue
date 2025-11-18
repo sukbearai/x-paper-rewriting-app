@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
                   type="primary" size="large" :disabled="!inputText.trim() || isProcessing || submitLoading"
                   :loading="isProcessing || submitLoading" @click="startProcessing"
                 >
-                  {{ isProcessing ? `处理中(${processingProgress}%)` : '开始生成' }}
+                  {{ isProcessing ? `处理中` : '开始生成' }}
                 </el-button>
               </div>
             </div>
