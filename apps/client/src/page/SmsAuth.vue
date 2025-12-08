@@ -12,7 +12,7 @@ const authStore = useAuthStore()
 const router = useRouter()
 
 const activeName = ref<'login' | 'register'>('login')
-const loginMode = ref<'otp' | 'password'>('otp')
+const loginMode = ref<'otp' | 'password'>('password')
 const loginOtpRef = ref<FormInstance>()
 const loginPasswordRef = ref<FormInstance>()
 const registerRef = ref<FormInstance>()
@@ -157,7 +157,7 @@ function startCooldown() {
 
 async function sendSms(type: 'login' | 'register') {
   if (type === 'login' && loginMode.value !== 'otp') {
-    ElMessage.warning('请切换到短信验证码登录')
+    ElMessage.warning('请切换到手机登录')
     return
   }
 
@@ -329,11 +329,11 @@ onBeforeUnmount(() => {
           <div class="auth-panel">
             <div class="auth-panel__toggle">
               <el-radio-group v-model="loginMode" size="small">
-                <el-radio-button label="otp">
-                  验证码登录
-                </el-radio-button>
                 <el-radio-button label="password">
-                  密码登录
+                  用户名登录
+                </el-radio-button>
+                <el-radio-button label="otp">
+                  手机登录
                 </el-radio-button>
               </el-radio-group>
             </div>
