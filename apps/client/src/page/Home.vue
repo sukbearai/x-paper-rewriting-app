@@ -256,8 +256,11 @@ onBeforeUnmount(() => {
               <div class="points-value">
                 {{ truncatedCurrentPoints }}
               </div>
-              <el-button type="text" :loading="!pointsData" @click="fetchPoints">
+              <!-- <el-button type="text" :loading="!pointsData" @click="fetchPoints">
                 刷新积分
+              </el-button> -->
+              <el-button type="text" class="ml-2" @click="router.push('/balanceRecharge')">
+                前往充值
               </el-button>
             </div>
           </el-card>
@@ -442,7 +445,7 @@ onBeforeUnmount(() => {
 
 .input-area :deep(.el-textarea) {
   flex: 1;
-  min-height: 300px;
+  /* min-height: 300px; */
   resize: none;
 }
 
