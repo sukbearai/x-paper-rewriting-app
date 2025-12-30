@@ -290,14 +290,6 @@ onBeforeUnmount(() => {
             </p>
           </el-card>
 
-          <el-alert title="温馨提示：" type="info" :closable="false" class="mb-4">
-            <div class="space-y-2 text-sm">
-              <p>1. 问题咨询请联系客服微信：wwdjai</p>
-              <p class="text-red-500">
-                2. 想成为分站代理，请您联系客服微信：wwdjai
-              </p>
-            </div>
-          </el-alert>
         </div>
       </div>
 
