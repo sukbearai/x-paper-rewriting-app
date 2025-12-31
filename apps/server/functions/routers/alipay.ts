@@ -12,8 +12,27 @@ app.post('/pay', async (c) => {
     }
 
     const env = c.env as any
+
+    let privateKey = env.ALIPAY_PRIVATE_KEY
+    let publicKey = env.ALIPAY_PUBLIC_KEY
+
+    // Try fetching from KV if not in Env
+    if (!privateKey || !publicKey) {
+      try {
+        if (env.paper_rewriting_kv) {
+          if (!privateKey)
+            privateKey = await env.paper_rewriting_kv.get('ALIPAY_PRIVATE_KEY')
+          if (!publicKey)
+            publicKey = await env.paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
+        }
+      }
+      catch (e) {
+        console.warn('Failed to fetch Alipay keys from KV', e)
+      }
+    }
+
     // Basic validation of env vars
-    if (!env.ALIPAY_APP_ID || !env.ALIPAY_PRIVATE_KEY || !env.ALIPAY_PUBLIC_KEY) {
+    if (!env.ALIPAY_APP_ID || !privateKey || !publicKey) {
       console.error('Missing Alipay configuration')
       return c.json({ error: 'Server configuration error' }, 500)
     }
@@ -21,8 +40,8 @@ app.post('/pay', async (c) => {
     const html = await buildPagePayForm(
       {
         appId: env.ALIPAY_APP_ID,
-        privateKey: env.ALIPAY_PRIVATE_KEY,
-        alipayPublicKey: env.ALIPAY_PUBLIC_KEY,
+        privateKey,
+        alipayPublicKey: publicKey,
         gateway: env.ALIPAY_GATEWAY || 'https://openapi-sandbox.dl.alipaydev.com/gateway.do', // Use New Sandbox by default
         notifyUrl: env.ALIPAY_NOTIFY_URL,
         returnUrl: env.ALIPAY_RETURN_URL,
@@ -32,11 +51,12 @@ app.post('/pay', async (c) => {
         product_code: 'FAST_INSTANT_TRADE_PAY',
         total_amount,
         subject,
-      }
+      },
     )
 
     return c.html(html)
-  } catch (e: any) {
+  }
+  catch (e: any) {
     console.error('Alipay Pay Error:', e)
     return c.json({ error: e.message }, 500)
   }
@@ -48,20 +68,32 @@ app.post('/notify', async (c) => {
     const params = body as Record<string, string>
     const env = c.env as any
 
-    const isValid = await verify(params, env.ALIPAY_PUBLIC_KEY)
-    
+    let publicKey = env.ALIPAY_PUBLIC_KEY
+    if (!publicKey && env.paper_rewriting_kv) {
+      publicKey = await env.paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
+    }
+
+    if (!publicKey) {
+      console.error('Missing Alipay Public Key for verification')
+      return c.text('fail')
+    }
+
+    const isValid = await verify(params, publicKey)
+
     if (isValid) {
       // TODO: Update order status in database
       // const tradeStatus = params.trade_status
       // if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') { ... }
-      
+
       console.log('Alipay notify verified:', params)
       return c.text('success')
-    } else {
+    }
+    else {
       console.error('Alipay notify verification failed', params)
       return c.text('fail')
     }
-  } catch (e) {
+  }
+  catch (e) {
     console.error('Alipay notify error:', e)
     return c.text('fail')
   }
