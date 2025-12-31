@@ -37,6 +37,12 @@ interface UpdateUserRateRequestBody {
   rate?: number
 }
 
+interface UpdateUserPointsRequestBody {
+  target_user_id?: string
+  amount?: number
+  description?: string
+}
+
 interface ProfileRecord {
   id: number
   user_id: string
@@ -153,6 +159,20 @@ const updateUserRateSchema = z.object({
   rate: z.number()
     .min(0, '费率不能小于0')
     .max(10, '费率不能超过10'),
+})
+
+const updateUserPointsSchema = z.object({
+  target_user_id: z.string()
+    .trim()
+    .uuid('用户ID格式不正确'),
+  amount: z.number()
+    .min(-1000000, '积分调整金额过小')
+    .max(1000000, '积分调整金额过大')
+    .refine(val => val !== 0, '积分调整金额不能为0'),
+  description: z.string()
+    .trim()
+    .max(200, '描述信息过长')
+    .optional(),
 })
 
 const refreshSessionSchema = z.object({
@@ -920,6 +940,110 @@ user.post('/update-rate', authMiddleware, async (c) => {
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
     console.error('[user:update-rate] 修改用户费率异常:', err)
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+user.post('/update-points', authMiddleware, async (c) => {
+  try {
+    const requesterId = c.get('userId')
+    const requesterName = c.get('username')
+    const requesterRole = (c.get('role') || '').toLowerCase()
+
+    if (requesterRole !== 'admin') {
+      return c.json(createErrorResponse('仅管理员可修改用户积分', 403), 403)
+    }
+
+    let payload: UpdateUserPointsRequestBody
+    try {
+      payload = await c.req.json<UpdateUserPointsRequestBody>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = updateUserPointsSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { target_user_id, amount, description } = parsed.data
+    const adminSupabase = createSupabaseAdminClient(c.env)
+
+    // 1. 获取目标用户档案
+    const { data: targetProfile, error: targetProfileError } = await adminSupabase
+      .from('profiles')
+      .select('id, user_id, points_balance')
+      .eq('user_id', target_user_id)
+      .single()
+
+    if (targetProfileError || !targetProfile) {
+      console.error('[user:update-points] 未找到目标用户:', targetProfileError)
+      return c.json(createErrorResponse('目标用户不存在', 404), 404)
+    }
+
+    const currentBalance = targetProfile.points_balance ?? 0
+    const newBalanceRaw = currentBalance + amount
+    // 保留3位小数并处理浮点误差
+    const newBalance = Math.trunc(newBalanceRaw * 1000) / 1000
+
+    if (newBalance < 0) {
+      return c.json(createErrorResponse(`积分余额不足，当前余额: ${currentBalance}`, 400), 400)
+    }
+
+    // 2. 更新用户积分余额
+    const { data: updatedProfile, error: updateError } = await adminSupabase
+      .from('profiles')
+      .update({
+        points_balance: newBalance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', target_user_id)
+      .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
+      .single()
+
+    if (updateError || !updatedProfile) {
+      console.error('[user:update-points] 更新用户积分失败:', updateError)
+      return c.json(createErrorResponse('更新用户积分失败', 500), 500)
+    }
+
+    // 3. 记录交易日志
+    const { error: transactionError } = await adminSupabase
+      .from('points_transactions')
+      .insert({
+        profile_id: targetProfile.id,
+        transaction_type: 'recharge', // 管理员增加积分统一记为充值类型
+        amount,
+        balance_after: newBalance,
+        description: description || `管理员 ${requesterName} 手动调整积分`,
+        is_successful: true,
+      })
+
+    if (transactionError) {
+      console.warn('[user:update-points] 记录积分交易失败:', transactionError)
+      // 注意：这里更新已经成功，只是日志记录失败，暂不对用户报错，但在日志中记录
+    }
+
+    console.log(`[user:update-points] 管理员 ${requesterName}(${requesterId}) 将用户 ${target_user_id} 积分从 ${currentBalance} 调整为 ${newBalance} (调整量: ${amount})`)
+
+    return c.json(createSuccessResponse({
+      id: updatedProfile.id,
+      user_id: updatedProfile.user_id,
+      username: updatedProfile.username,
+      email: updatedProfile.email,
+      phone: updatedProfile.phone,
+      role: updatedProfile.role || 'user',
+      points_balance: updatedProfile.points_balance ?? 0,
+      rate: updatedProfile.rate ?? 1,
+      invite_code: updatedProfile.invite_code,
+      invited_by: updatedProfile.invited_by,
+      created_at: updatedProfile.created_at,
+    }, '积分更新成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.error('[user:update-points] 修改用户积分异常:', err)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })

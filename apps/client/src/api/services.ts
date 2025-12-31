@@ -19,6 +19,8 @@ import type {
   SubmitTaskResponse,
   TaskResultData,
   TaskResultParams,
+  UpdateUserPointsParams,
+  UpdateUserPointsResponse,
   UpdateUserRateParams,
   UpdateUserRateResponse,
   UpdateUserRoleParams,
@@ -151,6 +153,14 @@ export function updateUserRole(data: UpdateUserRoleParams) {
 
 export function updateUserRate(data: UpdateUserRateParams) {
   return request<UpdateUserRateResponse>('/user/update-rate', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}
+
+export function updateUserPoints(data: UpdateUserPointsParams) {
+  return request<UpdateUserPointsResponse>('/user/update-points', {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
     data,

@@ -290,3 +290,24 @@ export interface RegisterForm {
   code: string
   invite?: string
 }
+
+export interface UpdateUserPointsParams {
+  target_user_id: string
+  amount: number
+  description?: string
+}
+
+export interface UpdateUserPointsResponse {
+  id: number
+  user_id: string
+  username: string
+  email: string
+  phone?: string | null
+  role: UserRole
+  points_balance: number
+  rate: number
+  invite_code?: string | null
+  invited_by?: string | null
+  invited_by_username?: string | null
+  created_at: string
+}
