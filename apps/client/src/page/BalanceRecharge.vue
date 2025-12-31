@@ -7,7 +7,7 @@ import { useRequest } from 'vue-hooks-plus'
 import { useAuthStore } from '@/store/auth'
 import DragTable from '@/components/drag-table.vue'
 import type { PointsTransaction } from '@/api/interface'
-import { queryPointsTransactions, refundPointsTransaction } from '@/api/services'
+import { createAlipayPayment, queryPointsTransactions, refundPointsTransaction } from '@/api/services'
 
 const authStore = useAuthStore()
 
@@ -232,17 +232,60 @@ async function handleRefund(transaction: PointsTransaction) {
   }
 }
 
-function handleRecharge() {
+// Generate a simple trade number
+function generateTradeNo() {
+  const timestamp = Date.now()
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+  return `PAY${timestamp}${random}`
+}
+
+async function handleRecharge() {
   if (!amount.value || Number(amount.value) <= 0) {
     ElMessage.warning('请输入有效金额')
     return
   }
 
-  // 跳转到支付页面或打开支付弹窗
-  ElMessage.info(`充值功能开发中，充值金额：${amount.value} 元`)
-  amount.value = ''
-  if (authStore.isAuthenticated)
-    fetchTransactions('recharge')
+  const rechargeAmount = amount.value
+
+  try {
+    ElMessage.info('正在创建订单...')
+    const response = await createAlipayPayment({
+      out_trade_no: generateTradeNo(),
+      total_amount: rechargeAmount,
+      subject: `积分充值 - ${rechargeAmount}元`,
+    })
+
+    // Check if response is likely an error JSON (simple check)
+    if (typeof response === 'object' || (typeof response === 'string' && response.trim().startsWith('{'))) {
+      console.error('Alipay API Error:', response)
+      ElMessage.error('支付服务暂不可用，请联系管理员')
+      return
+    }
+
+    const html = response
+
+    // Submit the form contained in the HTML response
+    // The response is a full HTML page with a form and auto-submit script.
+    // We can extract the form or just write it to the document.
+    const div = document.createElement('div')
+    div.innerHTML = html
+    div.style.display = 'none' // Hide the injected content
+    document.body.appendChild(div)
+
+    // Find the form and submit it
+    const form = document.forms.namedItem('alipaysubmit')
+    if (form) {
+      form.submit()
+    }
+    else {
+      console.error('Form not found in response:', html)
+      ElMessage.error('支付表单生成失败')
+    }
+  }
+  catch (error) {
+    console.error('Recharge error:', error)
+    ElMessage.error('创建订单失败，请稍后重试')
+  }
 }
 
 function handlePageChange(type: TransactionTab, payload: { page: number }) {

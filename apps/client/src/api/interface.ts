@@ -311,3 +311,9 @@ export interface UpdateUserPointsResponse {
   invited_by_username?: string | null
   created_at: string
 }
+
+export interface CreateAlipayPaymentParams {
+  out_trade_no: string
+  total_amount: string
+  subject: string
+}

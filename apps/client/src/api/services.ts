@@ -1,6 +1,7 @@
-import { request } from '@/api/axios'
+import { axiosInstance, request } from '@/api/axios'
 import type {
   ChangePasswordParams,
+  CreateAlipayPaymentParams,
   LoginResponse,
   LoginWithOtpParams,
   LoginWithPasswordParams,
@@ -165,4 +166,12 @@ export function updateUserPoints(data: UpdateUserPointsParams) {
     headers: { 'Content-Type': 'application/json' },
     data,
   })
+}
+
+export async function createAlipayPayment(data: CreateAlipayPaymentParams) {
+  // Use axiosInstance directly to handle HTML/Text response
+  const response = await axiosInstance.post<string>('/alipay/pay', data, {
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return response.data
 }
