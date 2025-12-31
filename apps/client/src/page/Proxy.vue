@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import DragTable from '@/components/drag-table.vue'
 import type { RechargeRecord, UserListItem, UserRole } from '@/api/interface'
-import { queryRechargeRecords, queryUserList, updateUserRole } from '@/api/services'
+import { queryRechargeRecords, queryUserList, updateUserRate, updateUserRole } from '@/api/services'
 import { useAuthStore } from '@/store/auth'
 
 type TabKey = 'users' | 'recharges'
@@ -32,6 +32,7 @@ const isAdmin = computed(() => currentUser.value?.role === 'admin')
 const isAgent = computed(() => currentUser.value?.role === 'agent')
 const canViewRecharges = computed(() => isAdmin.value || isAgent.value)
 const roleUpdating = ref<Record<string, boolean>>({})
+const rateUpdating = ref<Record<string, boolean>>({})
 
 const roleOptions: Array<{ label: string, value: UserRole }> = [
   { label: '管理员', value: 'admin' },
@@ -61,6 +62,7 @@ const usersColumns = ref([
   { prop: 'email', label: '邮箱', minWidth: 200 },
   { prop: 'phone', label: '手机号', minWidth: 160 },
   { prop: 'role', label: '角色', width: 160, slot: 'role' },
+  { prop: 'rate', label: '费率', width: 120, slot: 'rate' },
   { prop: 'points_balance', label: '积分余额', minWidth: 140 },
   { prop: 'invite_code', label: '邀请码', minWidth: 140 },
   { prop: 'invited_by_username', label: '邀请人用户名', minWidth: 160 },
@@ -131,6 +133,47 @@ function setRoleUpdating(userId: string, value: boolean) {
 function isRoleUpdating(target: UserListItem) {
   const key = String(target.user_id || target.id)
   return !!roleUpdating.value[key]
+}
+
+function setRateUpdating(userId: string, value: boolean) {
+  rateUpdating.value[userId] = value
+}
+
+function isRateUpdating(target: UserListItem) {
+  const key = String(target.user_id || target.id)
+  return !!rateUpdating.value[key]
+}
+
+async function handleRateChange(target: UserListItem, nextRate: number | null) {
+  if (!isAdmin.value || nextRate === null)
+    return
+
+  const targetId = String(target.user_id || target.id)
+  if (!targetId)
+    return
+
+  if (rateUpdating.value[targetId] || target.rate === nextRate)
+    return
+
+  const previousRate = target.rate
+  target.rate = nextRate
+  setRateUpdating(targetId, true)
+
+  try {
+    const response = await updateUserRate({
+      target_user_id: targetId,
+      rate: nextRate,
+    })
+
+    target.rate = response.rate
+    ElMessage.success('费率更新成功')
+  }
+  catch {
+    target.rate = previousRate
+  }
+  finally {
+    setRateUpdating(targetId, false)
+  }
 }
 
 async function handleRoleChange(target: UserListItem, nextRole: UserRole) {
@@ -368,8 +411,21 @@ watch(() => currentUser.value?.role, () => {
               <el-option v-for="item in roleOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
             <el-tag v-else>
-              {{ roleLabelMap[row.role] ?? row.role }}
+              {{ roleLabelMap[row.role as UserRole] ?? row.role }}
             </el-tag>
+          </template>
+          <template #rate="{ row }">
+            <el-input-number
+              v-if="isAdmin"
+              :model-value="row.rate"
+              size="small"
+              :min="0"
+              :max="10"
+              :step="1"
+              :disabled="isRateUpdating(row)"
+              @change="handleRateChange(row, $event ?? null)"
+            />
+            <span v-else>{{ row.rate }}</span>
           </template>
           <template #created_at="{ row }">
             {{ formatDate(row.created_at) }}

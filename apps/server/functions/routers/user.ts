@@ -32,6 +32,11 @@ interface UpdateUserRoleRequestBody {
   role?: string
 }
 
+interface UpdateUserRateRequestBody {
+  target_user_id?: string
+  rate?: number
+}
+
 interface ProfileRecord {
   id: number
   user_id: string
@@ -40,6 +45,7 @@ interface ProfileRecord {
   phone: string | null
   role: string | null
   points_balance: number | null
+  rate: number | null
   invite_code: string | null
   invited_by: number | null
   created_at: string
@@ -133,8 +139,20 @@ const updateUserRoleSchema = z.object({
     .uuid('用户ID格式不正确'),
   role: z.preprocess(
     value => typeof value === 'string' ? value.trim().toLowerCase() : value,
-    z.enum(['admin', 'agent', 'user']),
+    z.preprocess(
+      value => value === '' ? undefined : value,
+      z.enum(['admin', 'agent', 'user']),
+    ),
   ),
+})
+
+const updateUserRateSchema = z.object({
+  target_user_id: z.string()
+    .trim()
+    .uuid('用户ID格式不正确'),
+  rate: z.number()
+    .min(0, '费率不能小于0')
+    .max(10, '费率不能超过10'),
 })
 
 const refreshSessionSchema = z.object({
@@ -177,7 +195,7 @@ user.post('/login', async (c) => {
       // 查询用户档案
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
+        .select('user_id, username, email, phone, role, points_balance, rate, invite_code, created_at')
         .eq('username', username)
         .single()
 
@@ -204,6 +222,7 @@ user.post('/login', async (c) => {
           phone: profile.phone,
           role: profile.role,
           points_balance: profile.points_balance,
+          rate: profile.rate,
           invite_code: profile.invite_code,
           created_at: profile.created_at,
         },
@@ -223,7 +242,7 @@ user.post('/login', async (c) => {
       // 查询用户档案
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
+        .select('user_id, username, email, phone, role, points_balance, rate, invite_code, created_at')
         .eq('phone', normalizedPhone)
         .single()
 
@@ -251,6 +270,7 @@ user.post('/login', async (c) => {
           phone: profile.phone,
           role: profile.role,
           points_balance: profile.points_balance,
+          rate: profile.rate,
           invite_code: profile.invite_code,
           created_at: profile.created_at,
         },
@@ -307,7 +327,7 @@ user.post('/refresh', async (c) => {
     const adminSupabase = createSupabaseAdminClient(c.env)
     const { data: profile, error: profileError } = await adminSupabase
       .from('profiles')
-      .select('user_id, username, email, phone, role, points_balance, invite_code, created_at')
+      .select('user_id, username, email, phone, role, points_balance, rate, invite_code, created_at')
       .eq('user_id', userInfo.id)
       .single()
 
@@ -324,6 +344,7 @@ user.post('/refresh', async (c) => {
         phone: profile.phone,
         role: profile.role,
         points_balance: profile.points_balance,
+        rate: profile.rate,
         invite_code: profile.invite_code,
         created_at: profile.created_at,
       },
@@ -557,8 +578,9 @@ user.post('/register', async (c) => {
         invited_by: invitedByProfile?.id || null,
         role: 'user',
         points_balance: 0,
+        rate: 1,
       })
-      .select('id, username, email, phone, invite_code, role, points_balance, created_at')
+      .select('id, username, email, phone, invite_code, role, points_balance, rate, created_at')
       .single()
 
     if (profileError) {
@@ -588,6 +610,7 @@ user.post('/register', async (c) => {
       invite_code: profileData.invite_code,
       role: profileData.role,
       points_balance: profileData.points_balance,
+      rate: profileData.rate,
       created_at: profileData.created_at,
       invited_by: invitedByProfile?.username || null,
     }, '注册成功'))
@@ -619,7 +642,7 @@ user.get('/list', authMiddleware, async (c) => {
     if (role === 'admin') {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+        .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -643,7 +666,7 @@ user.get('/list', authMiddleware, async (c) => {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+        .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
         .eq('invited_by', agentProfile.id)
         .order('created_at', { ascending: false })
 
@@ -688,6 +711,7 @@ user.get('/list', authMiddleware, async (c) => {
       phone: item.phone,
       role: item.role || 'user',
       points_balance: item.points_balance ?? 0,
+      rate: item.rate ?? 1,
       invite_code: item.invite_code,
       invited_by: item.invited_by,
       invited_by_username: typeof item.invited_by === 'number' ? inviterUsernameMap[item.invited_by] ?? null : null,
@@ -736,7 +760,7 @@ user.post('/update-role', authMiddleware, async (c) => {
 
     const { data: targetProfile, error: targetProfileError } = await adminSupabase
       .from('profiles')
-      .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+      .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
       .eq('user_id', target_user_id)
       .single()
 
@@ -758,6 +782,7 @@ user.post('/update-role', authMiddleware, async (c) => {
         phone: targetProfile.phone,
         role: targetProfile.role || 'user',
         points_balance: targetProfile.points_balance ?? 0,
+        rate: targetProfile.rate ?? 1,
         invite_code: targetProfile.invite_code,
         invited_by: targetProfile.invited_by,
         created_at: targetProfile.created_at,
@@ -771,7 +796,7 @@ user.post('/update-role', authMiddleware, async (c) => {
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', target_user_id)
-      .select('id, user_id, username, email, phone, role, points_balance, invite_code, invited_by, created_at')
+      .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
       .single()
 
     if (updateError || !updatedProfile) {
@@ -790,6 +815,7 @@ user.post('/update-role', authMiddleware, async (c) => {
       role: updatedProfile.role || targetRole,
       previous_role: previousRole,
       points_balance: updatedProfile.points_balance ?? 0,
+      rate: updatedProfile.rate ?? 1,
       invite_code: updatedProfile.invite_code,
       invited_by: updatedProfile.invited_by,
       created_at: updatedProfile.created_at,
@@ -798,6 +824,102 @@ user.post('/update-role', authMiddleware, async (c) => {
   catch (err) {
     const message = err instanceof Error ? err.message : '服务器内部错误'
     console.error('[user:update-role] 修改用户角色异常:', err)
+    return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
+  }
+})
+
+user.post('/update-rate', authMiddleware, async (c) => {
+  try {
+    const requesterId = c.get('userId')
+    const requesterName = c.get('username')
+    const requesterRole = (c.get('role') || '').toLowerCase()
+
+    if (requesterRole !== 'admin') {
+      return c.json(createErrorResponse('仅管理员可修改用户费率', 403), 403)
+    }
+
+    let payload: UpdateUserRateRequestBody
+    try {
+      payload = await c.req.json<UpdateUserRateRequestBody>()
+    }
+    catch {
+      return c.json(createErrorResponse('请求体格式错误，应为 JSON', 400), 400)
+    }
+
+    const parsed = updateUserRateSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return c.json(createErrorResponse(issue?.message || '参数校验失败', 400), 400)
+    }
+
+    const { target_user_id, rate: targetRate } = parsed.data
+    const adminSupabase = createSupabaseAdminClient(c.env)
+
+    const { data: targetProfile, error: targetProfileError } = await adminSupabase
+      .from('profiles')
+      .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
+      .eq('user_id', target_user_id)
+      .single()
+
+    if (targetProfileError || !targetProfile) {
+      console.error('[user:update-rate] 未找到目标用户:', targetProfileError)
+      return c.json(createErrorResponse('目标用户不存在', 404), 404)
+    }
+
+    const previousRate = targetProfile.rate ?? 1
+
+    if (previousRate === targetRate) {
+      console.log(`[user:update-rate] 管理员 ${requesterName}(${requesterId}) 调整用户 ${target_user_id} 费率，但费率已为 ${targetRate}`)
+      return c.json(createSuccessResponse({
+        id: targetProfile.id,
+        user_id: targetProfile.user_id,
+        username: targetProfile.username,
+        email: targetProfile.email,
+        phone: targetProfile.phone,
+        role: targetProfile.role || 'user',
+        points_balance: targetProfile.points_balance ?? 0,
+        rate: targetProfile.rate ?? 1,
+        invite_code: targetProfile.invite_code,
+        invited_by: targetProfile.invited_by,
+        created_at: targetProfile.created_at,
+      }, '费率已是最新状态'))
+    }
+
+    const { data: updatedProfile, error: updateError } = await adminSupabase
+      .from('profiles')
+      .update({
+        rate: targetRate,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', target_user_id)
+      .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
+      .single()
+
+    if (updateError || !updatedProfile) {
+      console.error('[user:update-rate] 更新用户费率失败:', updateError)
+      return c.json(createErrorResponse('更新用户费率失败', 500), 500)
+    }
+
+    console.log(`[user:update-rate] 管理员 ${requesterName}(${requesterId}) 将用户 ${target_user_id} 费率从 ${previousRate} 更新为 ${targetRate}`)
+
+    return c.json(createSuccessResponse({
+      id: updatedProfile.id,
+      user_id: updatedProfile.user_id,
+      username: updatedProfile.username,
+      email: updatedProfile.email,
+      phone: updatedProfile.phone,
+      role: updatedProfile.role || 'user',
+      points_balance: updatedProfile.points_balance ?? 0,
+      rate: updatedProfile.rate ?? targetRate,
+      previous_rate: previousRate,
+      invite_code: updatedProfile.invite_code,
+      invited_by: updatedProfile.invited_by,
+      created_at: updatedProfile.created_at,
+    }, '费率更新成功'))
+  }
+  catch (err) {
+    const message = err instanceof Error ? err.message : '服务器内部错误'
+    console.error('[user:update-rate] 修改用户费率异常:', err)
     return c.json(createErrorResponse(message || '服务器内部错误', 500), 500)
   }
 })

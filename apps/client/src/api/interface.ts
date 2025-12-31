@@ -27,6 +27,7 @@ export interface RegisterResponse {
   invite_code?: string
   role: string
   points_balance: number
+  rate: number
   created_at: string
   invited_by?: string
 }
@@ -56,6 +57,7 @@ export interface LoginUser {
   phone?: string
   role: string
   points_balance: number
+  rate: number
   invite_code?: string
   created_at: string
 }
@@ -83,6 +85,7 @@ export interface UserListItem {
   phone?: string | null
   role: UserRole
   points_balance: number
+  rate: number
   invite_code?: string | null
   invited_by?: string | null
   invited_by_username?: string | null
@@ -103,6 +106,28 @@ export interface UpdateUserRoleResponse {
   role: UserRole
   previous_role: UserRole
   points_balance: number
+  rate: number
+  invite_code?: string | null
+  invited_by?: string | null
+  invited_by_username?: string | null
+  created_at: string
+}
+
+export interface UpdateUserRateParams {
+  target_user_id: string
+  rate: number
+}
+
+export interface UpdateUserRateResponse {
+  id: number
+  user_id: string
+  username: string
+  email: string
+  phone?: string | null
+  role: UserRole
+  points_balance: number
+  rate: number
+  previous_rate?: number
   invite_code?: string | null
   invited_by?: string | null
   invited_by_username?: string | null
