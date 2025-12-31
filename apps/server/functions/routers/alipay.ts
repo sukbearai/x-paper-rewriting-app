@@ -21,9 +21,9 @@ app.post('/pay', async (c) => {
       try {
         if (env.paper_rewriting_kv) {
           if (!privateKey)
-            privateKey = await env.paper_rewriting_kv.get('ALIPAY_PRIVATE_KEY')
+            privateKey = await paper_rewriting_kv.get('ALIPAY_PRIVATE_KEY')
           if (!publicKey)
-            publicKey = await env.paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
+            publicKey = await paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
         }
       }
       catch (e) {
@@ -70,7 +70,7 @@ app.post('/notify', async (c) => {
 
     let publicKey = env.ALIPAY_PUBLIC_KEY
     if (!publicKey && env.paper_rewriting_kv) {
-      publicKey = await env.paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
+      publicKey = await paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
     }
 
     if (!publicKey) {
