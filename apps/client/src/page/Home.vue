@@ -27,14 +27,14 @@ const aiTools = [
     price: '3.00积分/千字',
     tooltip: '1、专注降低文本AIGC率，不做降重；2、适配知网检测；3、语句自然通顺，适合审稿前精修；4、实测可将AIGC率稳定降至15%以下',
     type: 'reduce-ai-rate' as const,
-    platform: 'zhiwang' as const,
+    platform: 'weipu' as const,
   },
   {
     name: '降AI率（维普版）',
     price: '3.00积分/千字',
     tooltip: '1、专注降低文本AIGC率，不做降重；2、适配维普检测；3、保持文本结构稳定；4、支持多轮优化，降低审查风险',
     type: 'reduce-ai-rate' as const,
-    platform: 'weipu' as const,
+    platform: 'zhiwang' as const,
   },
   {
     name: '降重（知网版）',
@@ -289,7 +289,6 @@ onBeforeUnmount(() => {
               {{ tool.price }}
             </p>
           </el-card>
-
         </div>
       </div>
 
