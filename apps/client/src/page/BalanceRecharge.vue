@@ -240,8 +240,9 @@ function generateTradeNo() {
 }
 
 async function handleRecharge() {
-  if (!amount.value || Number(amount.value) <= 0) {
-    ElMessage.warning('请输入有效金额')
+  const val = Number(amount.value)
+  if (!amount.value || Number.isNaN(val) || val < 1 || !Number.isInteger(val)) {
+    ElMessage.warning('请输入有效金额（需为整数且至少 1 元）')
     return
   }
 
@@ -421,9 +422,9 @@ onMounted(() => {
       <div class="flex items-end gap-4">
         <el-input
           v-model="amount"
-          placeholder="请输入充值金额"
+          placeholder="请输入充值金额（最低1元）"
           type="number"
-          min="10"
+          min="1"
           style="width: 240px"
         />
         <el-button type="primary" @click="handleRecharge">
