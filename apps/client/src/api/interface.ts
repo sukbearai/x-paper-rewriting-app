@@ -145,6 +145,7 @@ export interface UserListResponse {
 export interface UserListQueryParams {
   page?: number
   limit?: number
+  phone?: string
 }
 
 export interface ChangePasswordParams {

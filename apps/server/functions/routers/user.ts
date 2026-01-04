@@ -649,7 +649,10 @@ user.get('/list', authMiddleware, async (c) => {
 
     const role = (roleRaw || '').toLowerCase()
 
-    console.log(`[user:list] 用户 ${username}(${userId}) 请求用户列表，角色：${role}`)
+    // 获取查询参数
+    const phoneQuery = c.req.query('phone')
+
+    console.log(`[user:list] 用户 ${username}(${userId}) 请求用户列表，角色：${role}${phoneQuery ? `，手机号搜索：${phoneQuery}` : ''}`)
 
     if (role !== 'admin' && role !== 'agent') {
       return c.json(createErrorResponse('无权访问', 403), 403)
@@ -660,10 +663,16 @@ user.get('/list', authMiddleware, async (c) => {
     let usersData: ProfileRecord[] = []
 
     if (role === 'admin') {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
         .order('created_at', { ascending: false })
+
+      if (phoneQuery) {
+        query = query.ilike('phone', `%${phoneQuery}%`)
+      }
+
+      const { data, error } = await query
 
       if (error) {
         console.error('[user:list] 管理员查询用户列表失败:', error)
@@ -684,11 +693,17 @@ user.get('/list', authMiddleware, async (c) => {
         return c.json(createErrorResponse('用户档案不存在', 404), 404)
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
         .eq('invited_by', agentProfile.id)
         .order('created_at', { ascending: false })
+
+      if (phoneQuery) {
+        query = query.ilike('phone', `%${phoneQuery}%`)
+      }
+
+      const { data, error } = await query
 
       if (error) {
         console.error('[user:list] 代理查询下级用户失败:', error)

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
@@ -75,6 +76,12 @@ const usersPage = ref<PaginationState>({
   pageNum: 1,
   pageSize: DEFAULT_PAGE_SIZE,
 })
+const searchPhone = ref('')
+
+function handleSearch() {
+  usersPage.value.pageNum = 1
+  getUsersData()
+}
 
 async function getUsersData() {
   if (!isAuthenticated.value)
@@ -88,6 +95,7 @@ async function getUsersData() {
     const response = await queryUserList({
       page: usersPage.value.pageNum,
       limit: usersPage.value.pageSize,
+      phone: searchPhone.value || undefined,
     })
 
     if (usersRequestId.value !== requestId)
@@ -435,6 +443,23 @@ watch(() => currentUser.value?.role, () => {
   <div class="home">
     <el-tabs v-model="activeTab" type="card">
       <el-tab-pane label="用户列表" name="users">
+        <div class="filter-container">
+          <el-input
+            v-model="searchPhone"
+            placeholder="搜索手机号"
+            style="width: 200px; margin-right: 10px;"
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-button type="primary" @click="handleSearch">
+            搜索
+          </el-button>
+        </div>
         <DragTable
           height="70vh"
           :data="{ name: 'users', data: usersData }"
@@ -577,6 +602,11 @@ watch(() => currentUser.value?.role, () => {
   margin-bottom: 12px;
   font-size: 13px;
   color: #6b7280;
+}
+.filter-container {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
 }
 .recharge-empty-hint {
   height: 70vh;
