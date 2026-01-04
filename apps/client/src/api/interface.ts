@@ -314,7 +314,7 @@ export interface UpdateUserPointsResponse {
 }
 
 export interface CreateAlipayPaymentParams {
-  out_trade_no: string
   total_amount: string
   subject: string
+  return_url?: string
 }

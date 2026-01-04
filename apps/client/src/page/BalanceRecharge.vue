@@ -232,12 +232,7 @@ async function handleRefund(transaction: PointsTransaction) {
   }
 }
 
-// Generate a simple trade number
-function generateTradeNo() {
-  const timestamp = Date.now()
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-  return `PAY${timestamp}${random}`
-}
+
 
 async function handleRecharge() {
   const val = Number(amount.value)
@@ -251,7 +246,7 @@ async function handleRecharge() {
   try {
     ElMessage.info('正在创建订单...')
     const response = await createAlipayPayment({
-      out_trade_no: generateTradeNo(),
+
       total_amount: rechargeAmount,
       subject: `积分充值 - ${rechargeAmount}元`,
     })
