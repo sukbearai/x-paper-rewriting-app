@@ -16,29 +16,28 @@ app.post('/pay', async (c) => {
     let privateKey = env.ALIPAY_PRIVATE_KEY
     let publicKey = env.ALIPAY_PUBLIC_KEY
 
-    // Try fetching from KV if not in Env
     if (!privateKey || !publicKey) {
       try {
-        // Try accessing via env binding first, then global (user modification support)
-        const kv = env.paper_rewriting_kv || (globalThis as any).paper_rewriting_kv
-        
-        if (kv) {
-           if (!privateKey) privateKey = await kv.get('ALIPAY_PRIVATE_KEY')
-           if (!publicKey) publicKey = await kv.get('ALIPAY_PUBLIC_KEY')
-           console.log('Attempted to fetch keys from KV. Found private:', !!privateKey, 'Found public:', !!publicKey)
-        } else {
-           console.warn('KV namespace "paper_rewriting_kv" not found in env or global')
-        }
-      } catch (e: any) {
+        const kv = await paper_rewriting_kv
+        if (!privateKey)
+          privateKey = await kv.get('ALIPAY_PRIVATE_KEY')
+        if (!publicKey)
+          publicKey = await kv.get('ALIPAY_PUBLIC_KEY')
+        console.log('Attempted to fetch keys from KV. Found private:', !!privateKey, 'Found public:', !!publicKey)
+      }
+      catch (e: any) {
         console.warn('Failed to fetch Alipay keys from KV:', e)
       }
     }
 
     // Detailed validation
     const missingKeys = []
-    if (!env.ALIPAY_APP_ID) missingKeys.push('ALIPAY_APP_ID')
-    if (!privateKey) missingKeys.push('ALIPAY_PRIVATE_KEY')
-    if (!publicKey) missingKeys.push('ALIPAY_PUBLIC_KEY')
+    if (!env.ALIPAY_APP_ID)
+      missingKeys.push('ALIPAY_APP_ID')
+    if (!privateKey)
+      missingKeys.push('ALIPAY_PRIVATE_KEY')
+    if (!publicKey)
+      missingKeys.push('ALIPAY_PUBLIC_KEY')
 
     if (missingKeys.length > 0) {
       const msg = `Missing Alipay configuration: ${missingKeys.join(', ')}`
@@ -78,8 +77,9 @@ app.post('/notify', async (c) => {
     const env = c.env as any
 
     let publicKey = env.ALIPAY_PUBLIC_KEY
-    if (!publicKey && env.paper_rewriting_kv) {
-      publicKey = await paper_rewriting_kv.get('ALIPAY_PUBLIC_KEY')
+    if (!publicKey) {
+      const kv = await paper_rewriting_kv
+      publicKey = await kv.get('ALIPAY_PUBLIC_KEY')
     }
 
     if (!publicKey) {
