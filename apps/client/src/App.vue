@@ -127,7 +127,7 @@ function goToRecharge() {
         <el-icon class="menu-icon" :class="{ 'active-icon': activeMenu === 'home' }">
           <HomeFilled />
         </el-icon>
-        工具
+        AI改写
       </el-menu-item>
 
       <el-menu-item v-if="canAccessProxy" index="proxy">
