@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { buildPagePayForm, verify } from '../../utils/alipay'
 
-const app = new Hono()
+const alipay = new Hono()
 
-app.post('/pay', async (c) => {
+alipay.post('/pay', async (c) => {
   try {
     const { out_trade_no, total_amount, subject } = await c.req.json()
 
@@ -70,7 +70,7 @@ app.post('/pay', async (c) => {
   }
 })
 
-app.post('/notify', async (c) => {
+alipay.post('/notify', async (c) => {
   try {
     const body = await c.req.parseBody()
     const params = body as Record<string, string>
@@ -108,4 +108,4 @@ app.post('/notify', async (c) => {
   }
 })
 
-export default app
+export default alipay
