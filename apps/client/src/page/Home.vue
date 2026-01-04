@@ -246,50 +246,45 @@ onBeforeUnmount(() => {
   <div class="home-container">
     <div class="home-content">
       <div class="left-sidebar">
-        <div class="space-y-4">
-          <!-- 积分信息卡片 -->
-          <el-card class="mb-4 points-card">
-            <div class="points-info">
-              <div class="points-label">
-                当前积分
-              </div>
-              <div class="points-value">
-                {{ truncatedCurrentPoints }}
-              </div>
-              <!-- <el-button type="text" :loading="!pointsData" @click="fetchPoints">
-                刷新积分
-              </el-button> -->
-              <el-button type="text" class="ml-2" @click="router.push('/balanceRecharge')">
-                前往充值
-              </el-button>
+        <el-card class="sidebar-panel" :body-style="{ padding: '0', display: 'flex', flexDirection: 'column', height: '100%' }">
+          <div class="points-section">
+            <div class="points-label">
+              当前积分
             </div>
-          </el-card>
+            <div class="points-value">
+              {{ truncatedCurrentPoints }}
+            </div>
+            <el-button type="text" class="recharge-btn" @click="router.push('/balanceRecharge')">
+              前往充值
+            </el-button>
+          </div>
 
-          <el-card
-            v-for="(tool, index) in aiTools" :key="tool.name"
-            class="mb-4 tool-card" :class="[{ 'selected-tool': selectedTool === index }]"
-            @click="handleToolClick(index)"
-          >
-            <div class="flex items-center space-x-2">
-              <h3 class="font-medium text-gray-900">
-                {{ tool.name }}
-              </h3> <el-tooltip
-                :content="tool.tooltip"
-                placement="right"
-                effect="light"
-              >
-                <el-button type="text" class="ml-2">
-                  <el-icon>
-                    <InfoFilled />
-                  </el-icon>
-                </el-button>
-              </el-tooltip>
+          <div class="tools-list">
+            <div
+              v-for="(tool, index) in aiTools" :key="tool.name"
+              class="tool-item" :class="[{ 'selected-tool': selectedTool === index }]"
+              @click="handleToolClick(index)"
+            >
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center space-x-2">
+                  <span class="font-medium text-gray-900">{{ tool.name }}</span>
+                  <el-tooltip
+                    :content="tool.tooltip"
+                    placement="right"
+                    effect="light"
+                  >
+                    <el-icon class="info-icon">
+                      <InfoFilled />
+                    </el-icon>
+                  </el-tooltip>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500">
+                {{ tool.price }}
+              </p>
             </div>
-            <p class="text-sm text-gray-500">
-              {{ tool.price }}
-            </p>
-          </el-card>
-        </div>
+          </div>
+        </el-card>
       </div>
 
       <div class="main-content">
@@ -430,29 +425,37 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+.input-card :deep(.el-card__body),
+.result-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 20px; /* Preserve padding if needed, or adjust */
+}
+
 .result-area {
   min-height: 360px;
 }
 
 .input-area :deep(.el-textarea) {
-  flex: 1;
-  /* min-height: 300px; */
+  height: 100%;
   resize: none;
 }
 
 .input-area :deep(.el-textarea__inner) {
-  min-height: 300px !important;
+  height: 100% !important;
   border: none;
   box-shadow: none;
 }
 
 .result-area :deep(.el-textarea) {
-  flex: 1;
+  height: 100%;
   resize: none;
 }
 
 .result-area :deep(.el-textarea__inner) {
-  min-height: 280px !important;
+  height: 100% !important;
   resize: none;
 }
 
@@ -461,6 +464,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  min-height: 50px; /* Standardize header height */
 }
 
 .card-footer {
@@ -468,6 +472,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  min-height: 60px; /* Standardize footer height to accommodate large buttons */
 }
 
 .footer-info {
@@ -499,45 +504,67 @@ onBeforeUnmount(() => {
     border-radius: 8px;
 }
 
-/* 积分卡片样式 */
-.points-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
+/* Sidebar Panel Styles */
+.sidebar-panel {
+  height: 100%;
+  border: none;
+  display: flex;
+  flex-direction: column;
 }
 
-.points-card :deep(.el-card__body) {
-    text-align: center;
-    padding: 20px;
+.points-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px 20px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.points-label {
-    font-size: 14px;
-    opacity: 0.9;
-    margin-bottom: 8px;
+.recharge-btn {
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0;
+  height: auto;
 }
 
-.points-value {
-    font-size: 28px;
-    font-weight: bold;
-    margin-bottom: 12px;
+.recharge-btn:hover {
+  color: #fff;
+  text-decoration: underline;
 }
 
-/* 工具卡片样式 */
-.tool-card {
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
+.tools-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.tool-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+.tool-item {
+  cursor: pointer;
+  padding: 12px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  background-color: #f9fafb;
 }
 
-.tool-card.selected-tool {
-    border-color: #409EFF;
-    background-color: #f0f9ff;
+.tool-item:hover {
+  background-color: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.tool-item.selected-tool {
+  background-color: #ecf5ff;
+  border-color: #409EFF;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+}
+
+.info-icon {
+  color: #909399;
+  font-size: 14px;
+  cursor: help;
+  margin-top: 2px;
 }
 
 /* 处理状态样式 */

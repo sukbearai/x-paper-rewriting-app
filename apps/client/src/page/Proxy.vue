@@ -461,7 +461,7 @@ watch(() => currentUser.value?.role, () => {
           </el-button>
         </div>
         <DragTable
-          height="70vh"
+          fit
           :data="{ name: 'users', data: usersData }"
           :columns="usersColumns"
           :loading="usersLoading"
@@ -526,7 +526,7 @@ watch(() => currentUser.value?.role, () => {
             当前范围：{{ rechargeScopeLabel }}
           </div>
           <DragTable
-            height="70vh"
+            fit
             :data="{ name: 'recharges', data: rechargesData }"
             :columns="rechargesColumns"
             :loading="rechargesLoading"
@@ -594,9 +594,24 @@ watch(() => currentUser.value?.role, () => {
 .home {
   padding: 20px;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 :deep(.el-tabs){
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+:deep(.el-tabs__content) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+:deep(.el-tab-pane) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .scope-tip {
   margin-bottom: 12px;

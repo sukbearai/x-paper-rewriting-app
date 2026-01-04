@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineEmits, defineExpose, onMounted, ref } from 'vue'
+import { ref } from 'vue'
 
 import type { ElTable } from 'element-plus'
 // import { useStore } from '@/stores'
@@ -62,6 +62,7 @@ interface Props {
   id?: string
   group?: Group
   spanMethod?: (params: any) => any[] | { rowspan: number, colspan: number }
+  fit?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -91,6 +92,7 @@ const props = withDefaults(defineProps<Props>(), {
   id: 'id',
   group: () => ({ name: 'group', pull: true, put: true }),
   spanMethod: () => ({ rowspan: 1, colspan: 1 }),
+  fit: false,
 })
 
 // emits
@@ -144,11 +146,11 @@ defineExpose({
 </script>
 
 <template>
-  <div class="table-box">
+  <div class="table-box" :class="{ 'is-fit': fit }">
     <div class="sf-query-btn">
       <slot name="sel-query" />
     </div>
-    <div class="tableInner" :style="{ height: height ?? 'auto' }">
+    <div class="tableInner" :class="{ 'is-fit': fit }" :style="{ height: !fit ? (height ?? 'auto') : 'auto' }">
       <el-table
         :id="id"
         ref="elTableRef"
@@ -278,5 +280,21 @@ defineExpose({
   align-items: center;
   justify-content: flex-end;
   padding: 0 10px;
+}
+
+.table-box.is-fit {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  .tableInner.is-fit {
+    flex: 1;
+    height: auto !important;
+    min-height: 0;
+
+    :deep(.el-table) {
+      height: 100% !important;
+    }
+  }
 }
 </style>

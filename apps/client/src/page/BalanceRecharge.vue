@@ -232,8 +232,6 @@ async function handleRefund(transaction: PointsTransaction) {
   }
 }
 
-
-
 async function handleRecharge() {
   const val = Number(amount.value)
   if (!amount.value || Number.isNaN(val) || val < 1 || !Number.isInteger(val)) {
@@ -404,6 +402,7 @@ onMounted(() => {
           <li>• 积分计算结果保留3位小数，采用截取而非四舍五入</li>
           <li>• 任务失败时对应的积分交易记录会被标记为失败状态</li>
           <li>• 失败任务的积分不会自动退还，需手动点击返还积分，返还记录可在充值记录查看</li>
+          <li>• 积分充值属于虚拟商品，暂不支持退款</li>
         </ul>
       </el-alert>
     </el-card>
