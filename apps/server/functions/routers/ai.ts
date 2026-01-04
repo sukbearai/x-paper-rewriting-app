@@ -317,7 +317,7 @@ type TaskType = 'reduce-plagiarism' | 'reduce-ai-rate'
 
 function resolveTaskLabel(platform: TaskPlatform, type: TaskType): string {
   if (type === 'reduce-ai-rate')
-    return platform === 'zhiwang' ? '降AI率（知网版）' : '降AI率（维普版）'
+    return platform === 'zhiwang' ? '降AI率（维普版）' : '降AI率（知网版）'
 
   return platform === 'zhiwang' ? '降重（知网版）' : '降重（维普版）'
 }
