@@ -77,6 +77,7 @@ const usersPage = ref<PaginationState>({
   pageSize: DEFAULT_PAGE_SIZE,
 })
 const searchPhone = ref('')
+const searchUsername = ref('')
 
 function handleSearch() {
   usersPage.value.pageNum = 1
@@ -96,6 +97,7 @@ async function getUsersData() {
       page: usersPage.value.pageNum,
       limit: usersPage.value.pageSize,
       phone: searchPhone.value || undefined,
+      username: searchUsername.value || undefined,
     })
 
     if (usersRequestId.value !== requestId)
@@ -445,10 +447,24 @@ watch(() => currentUser.value?.role, () => {
       <el-tab-pane label="用户列表" name="users">
         <div class="filter-container">
           <el-input
+            v-model="searchUsername"
+            placeholder="搜索用户名"
+            style="width: 200px; margin-right: 10px;"
+            clearable
+            @keyup.enter="handleSearch"
+            @clear="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+          <el-input
             v-model="searchPhone"
             placeholder="搜索手机号"
             style="width: 200px; margin-right: 10px;"
             clearable
+            maxlength="11"
+            @input="searchPhone = searchPhone.replace(/\D/g, '')"
             @keyup.enter="handleSearch"
             @clear="handleSearch"
           >
@@ -596,22 +612,42 @@ watch(() => currentUser.value?.role, () => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
-:deep(.el-tabs){
+:deep(.el-tabs) {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 :deep(.el-tabs__content) {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 :deep(.el-tab-pane) {
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+:deep(.table-box) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+:deep(.tableInner) {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+:deep(.pager) {
+  flex-shrink: 0;
 }
 .scope-tip {
   margin-bottom: 12px;

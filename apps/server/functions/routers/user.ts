@@ -651,8 +651,16 @@ user.get('/list', authMiddleware, async (c) => {
 
     // 获取查询参数
     const phoneQuery = c.req.query('phone')
+    const usernameQuery = c.req.query('username')
+    const pageQuery = c.req.query('page')
+    const limitQuery = c.req.query('limit')
 
-    console.log(`[user:list] 用户 ${username}(${userId}) 请求用户列表，角色：${role}${phoneQuery ? `，手机号搜索：${phoneQuery}` : ''}`)
+    // 分页参数
+    const page = Math.max(1, Number.parseInt(pageQuery || '1', 10) || 1)
+    const limit = Math.min(100, Math.max(1, Number.parseInt(limitQuery || '10', 10) || 10))
+    const offset = (page - 1) * limit
+
+    console.log(`[user:list] 用户 ${username}(${userId}) 请求用户列表，角色：${role}，分页：${page}/${limit}${phoneQuery ? `，手机号搜索：${phoneQuery}` : ''}${usernameQuery ? `，用户名搜索：${usernameQuery}` : ''}`)
 
     if (role !== 'admin' && role !== 'agent') {
       return c.json(createErrorResponse('无权访问', 403), 403)
@@ -661,15 +669,40 @@ user.get('/list', authMiddleware, async (c) => {
     const supabase = createSupabaseAdminClient(c.env)
 
     let usersData: ProfileRecord[] = []
+    let total = 0
 
     if (role === 'admin') {
+      // 先查询总数
+      let countQuery = supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+
+      if (phoneQuery) {
+        countQuery = countQuery.ilike('phone', `%${phoneQuery}%`)
+      }
+      if (usernameQuery) {
+        countQuery = countQuery.ilike('username', `%${usernameQuery}%`)
+      }
+
+      const { count, error: countError } = await countQuery
+      if (countError) {
+        console.error('[user:list] 管理员查询用户总数失败:', countError)
+      }
+      total = count ?? 0
+
+      // 再查询分页数据
       let query = supabase
         .from('profiles')
         .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
         .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
 
       if (phoneQuery) {
         query = query.ilike('phone', `%${phoneQuery}%`)
+      }
+
+      if (usernameQuery) {
+        query = query.ilike('username', `%${usernameQuery}%`)
       }
 
       const { data, error } = await query
@@ -693,14 +726,39 @@ user.get('/list', authMiddleware, async (c) => {
         return c.json(createErrorResponse('用户档案不存在', 404), 404)
       }
 
+      // 先查询总数
+      let countQuery = supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('invited_by', agentProfile.id)
+
+      if (phoneQuery) {
+        countQuery = countQuery.ilike('phone', `%${phoneQuery}%`)
+      }
+      if (usernameQuery) {
+        countQuery = countQuery.ilike('username', `%${usernameQuery}%`)
+      }
+
+      const { count, error: countError } = await countQuery
+      if (countError) {
+        console.error('[user:list] 代理查询用户总数失败:', countError)
+      }
+      total = count ?? 0
+
+      // 再查询分页数据
       let query = supabase
         .from('profiles')
         .select('id, user_id, username, email, phone, role, points_balance, rate, invite_code, invited_by, created_at')
         .eq('invited_by', agentProfile.id)
         .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
 
       if (phoneQuery) {
         query = query.ilike('phone', `%${phoneQuery}%`)
+      }
+
+      if (usernameQuery) {
+        query = query.ilike('username', `%${usernameQuery}%`)
       }
 
       const { data, error } = await query
@@ -755,7 +813,9 @@ user.get('/list', authMiddleware, async (c) => {
 
     return c.json(createSuccessResponse({
       users,
-      total: users.length,
+      total,
+      page,
+      limit,
       scope: role === 'admin' ? 'all' : 'downline',
     }, '获取用户列表成功'))
   }
