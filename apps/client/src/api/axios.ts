@@ -55,18 +55,77 @@ axiosInstance.interceptors.request.use(
   },
 )
 
-axiosInstance.interceptors.response.use(
-  response => response,
-  (error) => {
-    if (error?.message?.includes?.('timeout')) {
-      console.log('timeout')
-    }
-    else {
-      console.log(error)
-    }
-    return Promise.reject(error)
-  },
-)
+let isRefreshing = false
+let requestsQueue: Array<{ resolve: (token: string) => void, reject: (error: any) => void }> = []
+
+export function setupInterceptors(store: any) {
+  axiosInstance.interceptors.response.use(
+    response => response,
+    async (error) => {
+      const originalRequest = error.config
+      
+      // 处理超时
+      if (error?.message?.includes?.('timeout')) {
+        console.log('timeout')
+        return Promise.reject(error)
+      }
+
+      // 如果是401错误，且不是刷新token接口本身的请求
+      if (error.response?.status === 401 && !originalRequest.url?.includes('/user/refresh')) {
+        if (isRefreshing) {
+          // 如果正在刷新，将请求加入队列
+          return new Promise((resolve, reject) => {
+            requestsQueue.push({
+              resolve: (token) => {
+                originalRequest.headers.Authorization = `Bearer ${token}`
+                resolve(axiosInstance(originalRequest))
+              },
+              reject: (err) => {
+                reject(err)
+              },
+            })
+          })
+        }
+
+        originalRequest._retry = true
+        isRefreshing = true
+
+        try {
+          // 尝试刷新token
+          const { session } = await store.attemptRefreshSession()
+          const newToken = session.access_token
+
+          // 刷新成功，重试队列中的请求
+          requestsQueue.forEach(({ resolve }) => resolve(newToken))
+          requestsQueue = []
+          
+          // 重试当前请求
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
+          return axiosInstance(originalRequest)
+        }
+        catch (refreshError) {
+          console.error('[Axios] Auto-refresh failed:', refreshError)
+          // 刷新失败，清空队列并拒绝所有请求
+          requestsQueue.forEach(({ reject }) => reject(refreshError))
+          requestsQueue = []
+          
+          // 退出登录
+          await store.logout()
+          return Promise.reject(refreshError)
+        }
+        finally {
+          isRefreshing = false
+        }
+      }
+
+      // 其他错误
+      if (error?.response) {
+        console.log(error)
+      }
+      return Promise.reject(error)
+    },
+  )
+}
 
 async function request<ResponseType = unknown>(url: string, options?: AxiosRequestConfig<unknown>): Promise<ResponseType> {
   try {

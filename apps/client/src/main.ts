@@ -12,6 +12,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import router from './router'
 import svgIcon from './components/SvgIcon.vue'
 import App from './App.vue'
+import { setupInterceptors } from '@/api/axios'
 import { useAuthStore } from '@/store/auth'
 
 async function bootstrap() {
@@ -23,6 +24,7 @@ async function bootstrap() {
   app.use(pinia)
 
   const authStore = useAuthStore(pinia)
+  setupInterceptors(authStore)
   await authStore.restoreSession()
 
   app.use(router)
