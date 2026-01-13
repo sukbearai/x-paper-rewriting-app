@@ -6,13 +6,13 @@ import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import DragTable from '@/components/drag-table.vue'
 import type { RechargeRecord, UserListItem, UserRole } from '@/api/interface'
-import { queryRechargeRecords, queryUserList, updateUserPoints, updateUserRate, updateUserRole } from '@/api/services'
+import { payForDownline, queryRechargeRecords, queryUserList, updateUserPoints, updateUserRate, updateUserRole } from '@/api/services'
 import { useAuthStore } from '@/store/auth'
 
 type TabKey = 'users' | 'recharges'
 type RechargeScope = 'all' | 'downline'
 
-const DEFAULT_PAGE_SIZE = 10
+const DEFAULT_PAGE_SIZE = 30
 
 interface PaginationState {
   total: number
@@ -69,6 +69,7 @@ const usersColumns = ref([
   { prop: 'invite_code', label: '邀请码', minWidth: 60 },
   { prop: 'invited_by_username', label: '邀请人用户名', minWidth: 100 },
   { prop: 'created_at', label: '创建时间', minWidth: 180, slot: 'created_at' },
+  { prop: 'actions', label: '操作', width: 120, slot: 'actions', fixed: 'right' as const },
 ])
 const usersData = ref<UserListItem[]>([])
 const usersPage = ref<PaginationState>({
@@ -439,6 +440,144 @@ watch(() => currentUser.value?.role, () => {
   if (activeTab.value === 'recharges')
     getRechargesData()
 })
+
+// 代理代付充值功能
+const rechargeDialogVisible = ref(false)
+const rechargeForm = ref({
+  targetUserId: '',
+  targetUsername: '',
+  amount: 100,
+  subject: '代理充值',
+})
+const rechargeFormRef = ref()
+const rechargeSubmitting = ref(false)
+
+// 计算预计到账积分（使用代理费率）
+const estimatedPoints = computed(() => {
+  if (!rechargeForm.value.amount || !currentUser.value?.rate)
+    return 0
+  const agentRate = Number(currentUser.value.rate ?? 1)
+  return (rechargeForm.value.amount * agentRate).toFixed(3)
+})
+
+// 选中下级的费率
+const selectedUserRate = computed(() => {
+  if (!rechargeForm.value.targetUserId)
+    return 0
+  const user = usersData.value.find(u => u.user_id === rechargeForm.value.targetUserId)
+  return user?.rate ?? 0
+})
+
+// 费率优惠（代理费率 - 下级费率）
+const rateAdvantage = computed(() => {
+  if (!currentUser.value?.rate || !selectedUserRate.value)
+    return 0
+  const agentRate = Number(currentUser.value.rate ?? 1)
+  return (agentRate - selectedUserRate.value).toFixed(3)
+})
+
+// 打开充值弹窗
+function openRechargeDialog(user: UserListItem) {
+  rechargeForm.value = {
+    targetUserId: user.user_id,
+    targetUsername: user.username || user.email || user.user_id,
+    amount: 100,
+    subject: '代理充值',
+  }
+  rechargeDialogVisible.value = true
+}
+
+// 关闭充值弹窗
+function closeRechargeDialog() {
+  rechargeDialogVisible.value = false
+  rechargeFormRef.value?.resetFields()
+}
+
+// 处理充值提交
+async function handleRechargeSubmit() {
+  if (!rechargeForm.value.targetUserId || !rechargeForm.value.amount) {
+    ElMessage.warning('请填写完整的充值信息')
+    return
+  }
+
+  if (rechargeForm.value.amount < 1 || !Number.isInteger(rechargeForm.value.amount)) {
+    ElMessage.warning('充值金额必须为正整数')
+    return
+  }
+
+  rechargeSubmitting.value = true
+  try {
+    const html = await payForDownline({
+      target_user_id: rechargeForm.value.targetUserId,
+      total_amount: rechargeForm.value.amount,
+      subject: rechargeForm.value.subject || '代理充值',
+      return_url: 'https://www.ttdjai.com/proxy',
+    })
+
+    // 创建一个隐藏的容器来渲染支付表单
+    const container = document.createElement('div')
+    container.innerHTML = html
+    document.body.appendChild(container)
+
+    // 自动提交表单
+    const form = container.querySelector('form')
+    if (form) {
+      form.submit()
+    }
+
+    closeRechargeDialog()
+    ElMessage.success('正在跳转到支付页面...')
+  }
+  catch (err: any) {
+    const msg = err?.response?.data?.message || '充值失败'
+    ElMessage.error(msg)
+  }
+  finally {
+    rechargeSubmitting.value = false
+  }
+}
+
+watch(
+  isAuthenticated,
+  (isAuthed) => {
+    if (!isAuthed) {
+      usersData.value = []
+      usersPage.value.total = 0
+      usersPage.value.pageNum = 1
+      usersPage.value.pageSize = DEFAULT_PAGE_SIZE
+      usersRequestId.value = 0
+      usersLoading.value = false
+      resetRechargesState()
+      return
+    }
+
+    if (activeTab.value === 'users')
+      getUsersData()
+    if (activeTab.value === 'recharges' && canViewRecharges.value)
+      getRechargesData()
+  },
+  { immediate: true },
+)
+
+watch(activeTab, (tab) => {
+  if (tab === 'users')
+    getUsersData()
+  else if (tab === 'recharges' && canViewRecharges.value)
+    getRechargesData()
+})
+
+watch(() => currentUser.value?.role, () => {
+  if (!isAuthenticated.value)
+    return
+
+  if (!canViewRecharges.value) {
+    resetRechargesState()
+    return
+  }
+
+  if (activeTab.value === 'recharges')
+    getRechargesData()
+})
 </script>
 
 <template>
@@ -533,6 +672,16 @@ watch(() => currentUser.value?.role, () => {
           <template #created_at="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
+          <template #actions="{ row }">
+            <el-button
+              v-if="(isAgent || isAdmin) && row.user_id !== currentUser?.id"
+              type="primary"
+              size="small"
+              @click="openRechargeDialog(row)"
+            >
+              充值
+            </el-button>
+          </template>
         </DragTable>
       </el-tab-pane>
 
@@ -603,6 +752,69 @@ watch(() => currentUser.value?.role, () => {
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- 代理代付充值弹窗 -->
+    <el-dialog
+      v-model="rechargeDialogVisible"
+      title="为下级充值"
+      width="500px"
+      :close-on-click-modal="false"
+      @close="closeRechargeDialog"
+    >
+      <el-form
+        ref="rechargeFormRef"
+        :model="rechargeForm"
+        label-width="120px"
+      >
+        <el-form-item label="充值用户">
+          <el-input
+            v-model="rechargeForm.targetUsername"
+            disabled
+            placeholder="用户名"
+          />
+        </el-form-item>
+
+        <el-form-item label="充值金额（元）" required>
+          <el-input-number
+            v-model="rechargeForm.amount"
+            :min="1"
+            :step="1"
+            :precision="0"
+            style="width: 100%"
+          />
+          <div style="margin-top: 8px; font-size: 13px; color: #6b7280;">
+            <div>
+              预计到账积分: <span style="color: #16a34a; font-weight: 500;">{{ estimatedPoints }}</span> 点
+              （使用您的代理费率 {{ currentUser?.rate || 1 }}）
+            </div>
+            <div v-if="Number(rateAdvantage) > 0" style="color: #16a34a; margin-top: 4px;">
+              💰 比下级自己充值多获得: {{ (rechargeForm.amount * Number(rateAdvantage)).toFixed(3) }} 积分
+            </div>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="充值说明">
+          <el-input
+            v-model="rechargeForm.subject"
+            placeholder="例如：月度充值"
+            maxlength="50"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="closeRechargeDialog">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="rechargeSubmitting"
+          @click="handleRechargeSubmit"
+        >
+          {{ rechargeSubmitting ? '处理中...' : '确认充值' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

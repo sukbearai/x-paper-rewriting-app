@@ -5,6 +5,7 @@ import type {
   LoginResponse,
   LoginWithOtpParams,
   LoginWithPasswordParams,
+  PayForDownlineParams,
   PointsResponse,
   PointsTransactionsQueryParams,
   PointsTransactionsResponse,
@@ -171,6 +172,19 @@ export function updateUserPoints(data: UpdateUserPointsParams) {
 export async function createAlipayPayment(data: CreateAlipayPaymentParams) {
   // Use axiosInstance directly to handle HTML/Text response
   const response = await axiosInstance.post<string>('/alipay/pay', data, {
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return response.data
+}
+
+/**
+ * 代理为下级用户充值
+ * @param data 充值参数
+ * @returns 支付表单HTML
+ */
+export async function payForDownline(data: PayForDownlineParams) {
+  // Use axiosInstance directly to handle HTML/Text response
+  const response = await axiosInstance.post<string>('/alipay/pay-for-downline', data, {
     headers: { 'Content-Type': 'application/json' },
   })
   return response.data

@@ -1,15 +1,132 @@
 /**
- * Alipay Utility Functions for Edge Runtime (Web Crypto API)
+ * Alipay SDK for Edge Runtime (Web Crypto API)
  */
 
-interface AlipayConfig {
+export interface AlipayConfig {
   appId: string
   privateKey: string
   alipayPublicKey: string
-  gateway: string
+  gateway?: string
   notifyUrl?: string
   returnUrl?: string
 }
+
+export class AlipaySdk {
+  private config: Required<AlipayConfig>
+
+  constructor(config: AlipayConfig) {
+    this.config = {
+      gateway: 'https://openapi.alipay.com/gateway.do',
+      notifyUrl: '',
+      returnUrl: '',
+      ...config,
+    }
+  }
+
+  /**
+   * Page Pay (Desktop Web)
+   * Returns HTML form to auto-submit
+   */
+  async pagePay(bizContent: Record<string, any>): Promise<string> {
+    const params = await this.buildRequestParams('alipay.trade.page.pay', bizContent)
+
+    // Build HTML Form
+    const inputs = Object.entries(params)
+      .map(([key, value]) => `<input type="hidden" name="${key}" value="${value.replace(/"/g, '&quot;')}" />`)
+      .join('\n')
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Alipay</title>
+        </head>
+        <body>
+          <form id="alipaysubmit" name="alipaysubmit" action="${this.config.gateway}?charset=utf-8" method="POST">
+            ${inputs}
+            <input type="submit" value="Pay" style="display:none" >
+          </form>
+          <script>document.forms['alipaysubmit'].submit();</script>
+        </body>
+      </html>
+    `
+  }
+
+  /**
+   * Query Order Status
+   */
+  async query(outTradeNo: string): Promise<any> {
+    const bizContent = {
+      out_trade_no: outTradeNo,
+    }
+
+    const params = await this.buildRequestParams('alipay.trade.query', bizContent)
+
+    // Send Request
+    const url = `${this.config.gateway}?charset=utf-8`
+    const body = new URLSearchParams(params).toString()
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+      },
+      body,
+    })
+
+    if (!res.ok) {
+      throw new Error(`Alipay API Error: ${res.status} ${res.statusText}`)
+    }
+
+    const json = await res.json() as any
+    // Response key is strictly "alipay_trade_query_response"
+    const response = json.alipay_trade_query_response
+    // const sign = json.sign
+
+    // TODO: Verify response signature if strictly required, but usually for query it is fine
+    // provided we trust the https connection to alipay gateway.
+
+    return response
+  }
+
+  /**
+   * Verify Notify Signature
+   */
+  async verifySignature(params: Record<string, string>): Promise<boolean> {
+    return verify(params, this.config.alipayPublicKey)
+  }
+
+  // ================= Private Helpers =================
+
+  private async buildRequestParams(method: string, bizContent: Record<string, any>): Promise<Record<string, string>> {
+    const commonParams: Record<string, string> = {
+      app_id: this.config.appId,
+      method,
+      format: 'JSON',
+      charset: 'utf-8',
+      sign_type: 'RSA2',
+      timestamp: getNowDate(),
+      version: '1.0',
+      biz_content: JSON.stringify(bizContent),
+    }
+
+    if (this.config.notifyUrl)
+      commonParams.notify_url = this.config.notifyUrl
+    if (this.config.notifyUrl)
+      commonParams.notify_url = this.config.notifyUrl
+    if (this.config.returnUrl)
+      commonParams.return_url = this.config.returnUrl
+
+    console.log('Alipay Request Params:', JSON.stringify(commonParams, null, 2))
+
+    const signature = await sign(commonParams, this.config.privateKey)
+    commonParams.sign = signature
+
+    return commonParams
+  }
+}
+
+// ================= Utils (Keep Edge Compatible) =================
 
 /**
  * Remove PEM header/footer and spaces/newlines
@@ -46,8 +163,9 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 /**
- * Sort and serialize parameters for signing
+ * Sort and serialize parameters for signing payment requests
  * Filter out empty values and 'sign' field
+ * Keep 'sign_type' for signing
  */
 function buildSignString(params: Record<string, string>): string {
   const sortedKeys = Object.keys(params).sort()
@@ -64,9 +182,27 @@ function buildSignString(params: Record<string, string>): string {
 }
 
 /**
+ * Sort and serialize parameters for verifying Alipay notifications
+ * Filter out empty values, 'sign' AND 'sign_type' fields
+ */
+function buildVerifyString(params: Record<string, string>): string {
+  const sortedKeys = Object.keys(params).sort()
+  const list: string[] = []
+
+  for (const key of sortedKeys) {
+    const value = params[key]
+    if (key !== 'sign' && key !== 'sign_type' && value !== undefined && value !== '') {
+      list.push(`${key}=${value}`)
+    }
+  }
+
+  return list.join('&')
+}
+
+/**
  * Sign parameters using RSA-SHA256
  */
-export async function sign(params: Record<string, string>, privateKeyPem: string): Promise<string> {
+async function sign(params: Record<string, string>, privateKeyPem: string): Promise<string> {
   const content = buildSignString(params)
   const encoder = new TextEncoder()
   const data = encoder.encode(content)
@@ -101,34 +237,36 @@ export async function verify(params: Record<string, string>, publicKeyPem: strin
   if (!sign)
     return false
 
-  // According to Alipay docs, verify should sign the params string (excluding sign/sign_type)
-  // and compare with the provided signature.
-  // Wait, no, verify means we take the sign string, and verify it against the signature using public key.
-
-  const content = buildSignString(params)
+  const content = buildVerifyString(params) // Use verify-specific function
   const encoder = new TextEncoder()
   const data = encoder.encode(content)
 
-  const signatureBuffer = base64ToArrayBuffer(sign)
-  const binaryKey = base64ToArrayBuffer(normalizeKey(publicKeyPem))
+  try {
+    const signatureBuffer = base64ToArrayBuffer(sign)
+    const binaryKey = base64ToArrayBuffer(normalizeKey(publicKeyPem))
 
-  const key = await crypto.subtle.importKey(
-    'spki', // Alipay public key is usually X.509 SubjectPublicKeyInfo (SPKI)
-    binaryKey,
-    {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: 'SHA-256',
-    },
-    false,
-    ['verify'],
-  )
+    const key = await crypto.subtle.importKey(
+      'spki', // Alipay public key is usually X.509 SubjectPublicKeyInfo (SPKI)
+      binaryKey,
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+      },
+      false,
+      ['verify'],
+    )
 
-  return crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    signatureBuffer,
-    data,
-  )
+    return await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      key,
+      signatureBuffer,
+      data,
+    )
+  }
+  catch (e) {
+    console.error('Signature verification failed:', e)
+    return false
+  }
 }
 
 /**
@@ -136,7 +274,7 @@ export async function verify(params: Record<string, string>, publicKeyPem: strin
  */
 const pad = (n: number) => n.toString().padStart(2, '0')
 
-export function getNowDate(): string {
+function getNowDate(): string {
   // Use UTC time and add 8 hours for Beijing Time
   const d = new Date()
   const len = d.getTime()
@@ -145,52 +283,4 @@ export function getNowDate(): string {
   const date = new Date(utcTime + 3600000 * 8)
 
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
-
-/**
- * Build HTML Form for auto-submission
- */
-export async function buildPagePayForm(
-  config: AlipayConfig,
-  bizContent: Record<string, any>,
-): Promise<string> {
-  const commonParams: Record<string, string> = {
-    app_id: config.appId,
-    method: 'alipay.trade.page.pay',
-    format: 'JSON',
-    charset: 'utf-8',
-    sign_type: 'RSA2',
-    timestamp: getNowDate(),
-    version: '1.0',
-    biz_content: JSON.stringify(bizContent),
-  }
-
-  if (config.notifyUrl)
-    commonParams.notify_url = config.notifyUrl
-  if (config.returnUrl)
-    commonParams.return_url = config.returnUrl
-
-  const signature = await sign(commonParams, config.privateKey)
-  commonParams.sign = signature
-
-  // Build HTML
-  const inputs = Object.entries(commonParams)
-    .map(([key, value]) => `<input type="hidden" name="${key}" value="${value.replace(/"/g, '&quot;')}" />`)
-    .join('\n')
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Alipay</title>
-      </head>
-      <body>
-        <form id="alipaysubmit" name="alipaysubmit" action="${config.gateway}?charset=utf-8" method="POST">
-          ${inputs}
-          <input type="submit" value="Pay" style="display:none" >
-        </form>
-        <script>document.forms['alipaysubmit'].submit();</script>
-      </body>
-    </html>
-  `
 }

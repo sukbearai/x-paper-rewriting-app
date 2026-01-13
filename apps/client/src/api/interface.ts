@@ -319,3 +319,11 @@ export interface CreateAlipayPaymentParams {
   subject: string
   return_url?: string
 }
+
+// 代理代付充值参数
+export interface PayForDownlineParams {
+  target_user_id: string  // 目标用户ID
+  total_amount: number    // 充值金额（元）
+  subject?: string        // 充值说明
+  return_url?: string     // 支付完成后的返回URL
+}
