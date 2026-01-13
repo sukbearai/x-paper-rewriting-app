@@ -733,9 +733,9 @@ watch(() => currentUser.value?.role, () => {
             </template>
             <template #description="{ row }">
               <span class="text-muted">{{ row.description || '--' }}</span>
-              <span v-if="row.reference_id" class="reference-hint">
+              <!-- <span v-if="row.reference_id" class="reference-hint">
                 ({{ row.reference_id }})
-              </span>
+              </span> -->
             </template>
             <template #status="{ row }">
               <el-tag :type="row.is_successful ? 'success' : 'warning'" size="small">
