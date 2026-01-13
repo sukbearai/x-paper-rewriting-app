@@ -318,7 +318,7 @@ alipay.post('/notify', async (c) => {
       .update({
         status: 'paid',
         updated_at: new Date().toISOString(),
-        metadata: params,
+        metadata: { ...order.metadata, ...params }, // 合并元数据，保留原有的 payment_type 等信息
       })
       .eq('id', order.id)
       .eq('status', 'pending') // Optimistic lock
