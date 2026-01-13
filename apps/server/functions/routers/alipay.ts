@@ -252,7 +252,7 @@ alipay.post('/pay-for-downline', authMiddleware, async (c) => {
 alipay.post('/notify', async (c) => {
   try {
     const body = await c.req.parseBody()
-    // console.log('Alipay Notify Params:', c.req)
+    console.log('Alipay Notify Params:', body)
     const params = body as Record<string, string>
     const env = c.env as any
 
@@ -354,7 +354,7 @@ alipay.post('/notify', async (c) => {
     }
 
     // Record Transaction
-    await supabase.from('points_transactions').insert({
+    const { error: transactionError } = await supabase.from('points_transactions').insert({
       profile_id: order.profile_id,
       transaction_type: 'recharge',
       amount: order.points_amount,
@@ -362,21 +362,30 @@ alipay.post('/notify', async (c) => {
       description,
       reference_id: out_trade_no,
       is_successful: true,
-      metadata: isPayForDownline
-        ? {
-            payment_type: 'pay_for_downline',
-            payer_profile_id: order.metadata?.payer_profile_id,
-            payer_user_id: order.metadata?.payer_user_id,
-            payer_username: order.metadata?.payer_username,
-            beneficiary_profile_id: order.metadata?.beneficiary_profile_id,
-            beneficiary_user_id: order.metadata?.beneficiary_user_id,
-            beneficiary_username: order.metadata?.beneficiary_username,
-            payer_rate: order.metadata?.payer_rate,
-            beneficiary_rate: order.metadata?.beneficiary_rate,
-            rate_profit: order.metadata?.rate_profit,
-          }
-        : undefined,
+      // metadata: isPayForDownline
+      //   ? {
+      //       payment_type: 'pay_for_downline',
+      //       payer_profile_id: order.metadata?.payer_profile_id,
+      //       payer_user_id: order.metadata?.payer_user_id,
+      //       payer_username: order.metadata?.payer_username,
+      //       beneficiary_profile_id: order.metadata?.beneficiary_profile_id,
+      //       beneficiary_user_id: order.metadata?.beneficiary_user_id,
+      //       beneficiary_username: order.metadata?.beneficiary_username,
+      //       payer_rate: order.metadata?.payer_rate,
+      //       beneficiary_rate: order.metadata?.beneficiary_rate,
+      //       rate_profit: order.metadata?.rate_profit,
+      //     }
+      //   : undefined,
     })
+
+    if (transactionError) {
+      console.error(`Failed to insert points_transaction for order ${out_trade_no}:`, transactionError)
+      // Don't return fail here - the order and balance update were successful
+      // We just log the error for monitoring
+    }
+    else {
+      console.log(`Points transaction recorded successfully for order ${out_trade_no}`)
+    }
 
     console.log(`Order ${out_trade_no} processed, added ${order.points_amount} points to ${isPayForDownline ? 'beneficiary' : 'user'}.`)
     return c.text('success')
