@@ -241,4 +241,103 @@ rewrite.post('/rewrite_state', async (c) => {
   }
 })
 
+// POST /rewrite_paragraph - Rewrite Paragraph
+rewrite.post('/rewrite_paragraph', async (c) => {
+  try {
+    const { text, type } = await c.req.json<{
+      text: string
+      type?: number
+    }>()
+
+    const apiKey = c.env.DOCX_REWRITE_API_KEY
+    const apiUrl = c.env.DOCX_REWRITE_API_URL
+
+    if (!text) {
+      return c.json(createErrorResponse('Missing text', 400), 400)
+    }
+
+    if (!apiKey) {
+      return c.json(createErrorResponse('Server configuration error: DOCX_REWRITE_API_KEY missing', 500), 500)
+    }
+
+    const userId = c.get('userId')
+    const username = c.get('username')
+
+    const supabase = createSupabaseAdminClient(c.env)
+
+    // Check balance
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('id, points_balance')
+      .eq('user_id', userId)
+      .single()
+
+    // Calculate estimated cost (3 points per 1000 chars)
+    const POINTS_PER_1000_CHARS = 3
+    const charCount = text.length
+    const cost = Math.max(0.01, Math.trunc((charCount / 1000 * POINTS_PER_1000_CHARS) * 1000) / 1000)
+
+    if ((userProfile?.points_balance || 0) < cost) {
+      return c.json(createErrorResponse(`积分不足，需要 ${cost} 积分`, 403), 403)
+    }
+
+    const upstreamBody = {
+      api_key: apiKey,
+      text,
+      type: type ?? 0, // Default to 0 (lower repetition rate) if not provided
+    }
+
+    const response = await fetch(`${apiUrl}/api/rewrite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(upstreamBody),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Upstream API error (rewrite paragraph):', response.status, errorText)
+      return c.json(createErrorResponse(`Upstream API error: ${response.status}`, 502), 502)
+    }
+
+    const result = await response.json()
+
+    // Deduct points after successful rewrite
+    let newBalance = userProfile?.points_balance || 0
+    if (userProfile) {
+      newBalance = Math.trunc(((userProfile.points_balance || 0) - cost) * 1000) / 1000
+
+      // Update balance
+      await supabase.from('profiles')
+        .update({ points_balance: newBalance })
+        .eq('id', userProfile.id)
+
+      // Record transaction
+      await supabase.from('points_transactions').insert({
+        profile_id: userProfile.id,
+        transaction_type: 'spend',
+        amount: -cost,
+        balance_after: newBalance,
+        description: `全文改写 (${type === 1 ? '降AI' : '降重'}) - ${charCount}字`,
+        // reference_id: result.order_id, // Paragraph rewrite might not return order_id, check result
+        is_successful: true,
+      })
+
+      console.log(`[rewrite_paragraph] Deducted ${cost} points for user ${username}`)
+    }
+
+    return c.json(createSuccessResponse({
+      ...result,
+      cost,
+      new_balance: newBalance,
+    }))
+  }
+  catch (error) {
+    console.error('Rewrite paragraph error:', error)
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return c.json(createErrorResponse(message, 500), 500)
+  }
+})
+
 export default rewrite

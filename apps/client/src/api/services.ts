@@ -213,3 +213,11 @@ export function checkRewriteState(data: RewriteStateParams) {
     data,
   })
 }
+
+export function rewriteParagraph(data: { text: string; type?: number }) {
+  return request<any>('/rewrite/rewrite_paragraph', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
+}

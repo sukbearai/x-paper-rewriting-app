@@ -5,7 +5,7 @@ import { InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRequest } from 'vue-hooks-plus'
 import { useAuthStore } from '@/store/auth'
-import { queryTaskResult, submitReduceTask } from '@/api/services'
+import { queryTaskResult, rewriteParagraph, submitReduceTask } from '@/api/services'
 import type { SubmitTaskParams, TaskResultParams } from '@/api/interface'
 
 const authStore = useAuthStore()
@@ -22,6 +22,31 @@ const processingProgress = ref(0)
 
 const selectedTool = ref(0)
 const aiTools = [
+  {
+    name: '全文改写（降重）',
+    price: '3.00积分/千字',
+    tooltip: '1、深度改写整段文本；2、保持核心语义不变；3、降低重复率；4、适合论文、报告等长文本优化',
+    type: 'rewrite-paragraph' as const,
+    platform: 'other' as any,
+    subType: 0,
+  },
+  {
+    name: '全文改写（降AI）',
+    price: '3.00积分/千字',
+    tooltip: '1、深度改写整段文本；2、保持核心语义不变；3、降低AIGC痕迹；4、适合论文、报告等长文本优化',
+    type: 'rewrite-paragraph' as const,
+    platform: 'other' as any,
+    subType: 1,
+  },
+  {
+    name: '知网,维普,格子达文档版',
+    price: '3.00积分/千字',
+    tooltip: '上传文档进行全文改写，支持 .docx 格式',
+    type: 'rewrite-docx' as const,
+    platform: 'other' as any,
+    isExternal: true,
+    path: '/rewrite',
+  },
   {
     name: '降AI率（知网版）',
     price: '3.00积分/千字',
@@ -49,15 +74,6 @@ const aiTools = [
     tooltip: '1、专注降低文本重复率；2、适配维普查重；3、优化语序和表达，保持逻辑连贯；4、适合维普终审前的深度优化',
     type: 'reduce-plagiarism' as const,
     platform: 'weipu' as const,
-  },
-  {
-    name: '知网,维普,格子达文档版',
-    price: '3.00积分/千字',
-    tooltip: '上传文档进行全文改写，支持 .docx 格式',
-    type: 'rewrite-docx' as const,
-    platform: 'other' as any,
-    isExternal: true,
-    path: '/rewrite',
   },
 ]
 
@@ -175,10 +191,48 @@ async function startProcessing() {
   }
 
   const tool = aiTools[selectedTool.value]
+
+  if (tool.type === 'rewrite-paragraph') {
+    try {
+      isProcessing.value = true
+      processingStatus.value = 'processing'
+
+      const res = await rewriteParagraph({
+        text: inputText.value,
+        type: (tool as any).subType ?? 0,
+      })
+
+      if (res) {
+        outputText.value = res.text || ''
+        resultCharCount.value = outputText.value.length
+        processingStatus.value = 'completed'
+        ElMessage.success(res.msg || '改写完成')
+
+        // Update balance if cost returned
+        if (res.new_balance !== undefined) {
+          // We might need to manually update local state or just refetch
+          fetchPoints()
+        }
+        else {
+          fetchPoints()
+        }
+      }
+    }
+    catch (error: any) {
+      console.error(error)
+      processingStatus.value = 'failed'
+      ElMessage.error(error.message || '改写失败')
+    }
+    finally {
+      isProcessing.value = false
+    }
+    return
+  }
+
   const params: SubmitTaskParams = {
     text: inputText.value,
-    platform: tool.platform,
-    type: tool.type,
+    platform: tool.platform as any,
+    type: tool.type as any,
   }
 
   try {
