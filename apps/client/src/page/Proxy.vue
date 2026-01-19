@@ -5,11 +5,11 @@ import { storeToRefs } from 'pinia'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import DragTable from '@/components/drag-table.vue'
-import type { RechargeRecord, UserListItem, UserRole } from '@/api/interface'
-import { payForDownline, queryRechargeRecords, queryUserList, updateUserPoints, updateUserRate, updateUserRole } from '@/api/services'
+import type { RechargeRecord, UserListItem, UserRole, WordsCountItem } from '@/api/interface'
+import { payForDownline, queryRechargeRecords, queryUserList, queryWordsCount, updateUserPoints, updateUserRate, updateUserRole } from '@/api/services'
 import { useAuthStore } from '@/store/auth'
 
-type TabKey = 'users' | 'recharges'
+type TabKey = 'users' | 'recharges' | 'words_count'
 type RechargeScope = 'all' | 'downline'
 
 const DEFAULT_PAGE_SIZE = 30
@@ -578,6 +578,50 @@ watch(() => currentUser.value?.role, () => {
   if (activeTab.value === 'recharges')
     getRechargesData()
 })
+
+// 字数统计
+const wordsCountLoading = ref(false)
+const wordsCountData = ref<{ month: string, total: number }[]>([])
+
+async function getWordsCountData() {
+  if (!isAdmin.value) {
+    wordsCountData.value = []
+    return
+  }
+
+  wordsCountLoading.value = true
+  try {
+    const res = await queryWordsCount()
+    const monthlyGroups: Record<string, number> = {}
+
+    if (res && Array.isArray(res)) {
+      res.forEach((item) => {
+        const month = dayjs(item.created_at).format('YYYY-MM')
+        if (!monthlyGroups[month]) {
+          monthlyGroups[month] = 0
+        }
+        monthlyGroups[month] += Number(item.words_count)
+      })
+
+      wordsCountData.value = Object.entries(monthlyGroups)
+        .map(([month, total]) => ({ month, total }))
+        .sort((a, b) => b.month.localeCompare(a.month))
+    }
+  }
+  catch (err: any) {
+    const msg = err?.response?.data?.message || '获取字数统计失败'
+    ElMessage.error(msg)
+    wordsCountData.value = []
+  }
+  finally {
+    wordsCountLoading.value = false
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'words_count' && isAdmin.value)
+    getWordsCountData()
+})
 </script>
 
 <template>
@@ -750,6 +794,17 @@ watch(() => currentUser.value?.role, () => {
         <div v-else class="recharge-empty-hint">
           仅管理员或代理可查看充值记录
         </div>
+      </el-tab-pane>
+
+      <el-tab-pane v-if="isAdmin" label="字数统计" name="words_count">
+        <el-table v-loading="wordsCountLoading" :data="wordsCountData" border style="width: 100%">
+          <el-table-column prop="month" label="月份" width="180" />
+          <el-table-column prop="total" label="总字数">
+            <template #default="{ row }">
+              {{ row.total.toLocaleString() }}
+            </template>
+          </el-table-column>
+        </el-table>
       </el-tab-pane>
     </el-tabs>
 

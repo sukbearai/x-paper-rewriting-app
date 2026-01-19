@@ -33,6 +33,7 @@ import type {
   UpdateUserRoleResponse,
   UserListQueryParams,
   UserListResponse,
+  WordsCountItem,
 } from '@/api/interface'
 
 export function sendSmsCode(data: SmsCodeParams) {
@@ -214,10 +215,17 @@ export function checkRewriteState(data: RewriteStateParams) {
   })
 }
 
-export function rewriteParagraph(data: { text: string; type?: number }) {
+export function rewriteParagraph(data: { text: string, type?: number }) {
   return request<any>('/rewrite/rewrite_paragraph', {
     method: 'post',
     headers: { 'Content-Type': 'application/json' },
     data,
+  })
+}
+
+export function queryWordsCount() {
+  return request<WordsCountItem[]>('/rewrite/words_count', {
+    method: 'get',
+    headers: { 'Content-Type': 'application/json' },
   })
 }

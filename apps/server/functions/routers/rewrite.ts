@@ -348,4 +348,27 @@ rewrite.post('/rewrite_paragraph', async (c) => {
   }
 })
 
+// GET /words_count - Get all words count data
+rewrite.get('/words_count', async (c) => {
+  try {
+    const supabase = createSupabaseAdminClient(c.env)
+    const { data, error } = await supabase
+      .from('words_count')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching words_count:', error)
+      return c.json(createErrorResponse(error.message, 500), 500)
+    }
+
+    return c.json(createSuccessResponse(data))
+  }
+  catch (error) {
+    console.error('Get words_count error:', error)
+    const message = error instanceof Error ? error.message : 'Internal Server Error'
+    return c.json(createErrorResponse(message, 500), 500)
+  }
+})
+
 export default rewrite

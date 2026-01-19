@@ -350,3 +350,9 @@ export interface RewriteStateResponse {
   success: boolean
   [key: string]: any
 }
+
+export interface WordsCountItem {
+  id: number
+  words_count: number
+  created_at: string
+}
