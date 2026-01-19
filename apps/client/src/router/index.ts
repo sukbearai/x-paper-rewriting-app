@@ -5,6 +5,7 @@ import SmsAuth from '../page/SmsAuth.vue'
 import Proxy from '../page/Proxy.vue'
 import UserCenter from '../page/UserCenter.vue'
 import BalanceRecharge from '../page/BalanceRecharge.vue'
+import Rewrite from '../page/Rewrite.vue'
 
 interface PersistedAuthState {
   accessToken?: string
@@ -64,6 +65,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/balanceRecharge',
     name: 'BalanceRecharge',
     component: BalanceRecharge,
+    meta: { roles: ['user', 'admin', 'agent'] },
+  },
+  {
+    path: '/rewrite',
+    name: 'Rewrite',
+    component: Rewrite,
     meta: { roles: ['user', 'admin', 'agent'] },
   },
 ]

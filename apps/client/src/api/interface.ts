@@ -327,3 +327,26 @@ export interface PayForDownlineParams {
   subject?: string        // 充值说明
   return_url?: string     // 支付完成后的返回URL
 }
+
+export interface RewriteDocxParams {
+  file: File
+  rewrite_type: string
+}
+
+export interface RewriteDocxResponse {
+  order_id: string
+  [key: string]: any
+}
+
+export interface RewriteStateParams {
+  order_id: string
+  file_name?: string
+}
+
+export interface RewriteStateResponse {
+  state: number
+  state_text: string
+  download_url?: string | null
+  success: boolean
+  [key: string]: any
+}

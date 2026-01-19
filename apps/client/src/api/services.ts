@@ -16,6 +16,10 @@ import type {
   RefundPointsResponse,
   RegisterParams,
   RegisterResponse,
+  RewriteDocxParams,
+  RewriteDocxResponse,
+  RewriteStateParams,
+  RewriteStateResponse,
   SmsCodeParams,
   SubmitTaskParams,
   SubmitTaskResponse,
@@ -188,4 +192,24 @@ export async function payForDownline(data: PayForDownlineParams) {
     headers: { 'Content-Type': 'application/json' },
   })
   return response.data
+}
+
+export function rewriteDocx(data: RewriteDocxParams) {
+  const formData = new FormData()
+  formData.append('file', data.file)
+  formData.append('rewrite_type', data.rewrite_type)
+
+  return request<RewriteDocxResponse>('/rewrite/rewrite_docx', {
+    method: 'post',
+    headers: { 'Content-Type': 'multipart/form-data' },
+    data: formData,
+  })
+}
+
+export function checkRewriteState(data: RewriteStateParams) {
+  return request<RewriteStateResponse>('/rewrite/rewrite_state', {
+    method: 'post',
+    headers: { 'Content-Type': 'application/json' },
+    data,
+  })
 }

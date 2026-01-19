@@ -50,6 +50,15 @@ const aiTools = [
     type: 'reduce-plagiarism' as const,
     platform: 'weipu' as const,
   },
+  {
+    name: '知网,维普,格子达文档版',
+    price: '3.00积分/千字',
+    tooltip: '上传文档进行全文改写，支持 .docx 格式',
+    type: 'rewrite-docx' as const,
+    platform: 'other' as any,
+    isExternal: true,
+    path: '/rewrite',
+  },
 ]
 
 // 获取积分信息
@@ -103,6 +112,11 @@ const { runAsync: queryResultAsync, cancel: cancelQueryPolling } = useRequest(qu
 })
 
 function handleToolClick(index: number) {
+  const tool = aiTools[index]
+  if ((tool as any).isExternal && (tool as any).path) {
+    router.push((tool as any).path)
+    return
+  }
   selectedTool.value = index
   console.log('选中工具:', aiTools[index])
 }
