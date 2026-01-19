@@ -61,15 +61,15 @@ const usersRequestId = ref(0)
 const usersColumns = ref([
   // { prop: 'id', label: 'ID', width: 80 },
   { prop: 'username', label: '用户名', minWidth: 100 },
+  { prop: 'actions', label: '操作', width: 120, slot: 'actions' },
+  { prop: 'points_balance', label: '积分余额', minWidth: 140, slot: 'points_balance' },
   // { prop: 'email', label: '邮箱', minWidth: 130 },
   { prop: 'phone', label: '手机号', minWidth: 110 },
   { prop: 'role', label: '角色', width: 120, slot: 'role' },
   { prop: 'rate', label: '费率', width: 160, slot: 'rate' },
-  { prop: 'points_balance', label: '积分余额', minWidth: 140, slot: 'points_balance' },
   { prop: 'invite_code', label: '邀请码', minWidth: 60 },
   { prop: 'invited_by_username', label: '邀请人用户名', minWidth: 100 },
   { prop: 'created_at', label: '创建时间', minWidth: 180, slot: 'created_at' },
-  { prop: 'actions', label: '操作', width: 120, slot: 'actions', fixed: 'right' as const },
 ])
 const usersData = ref<UserListItem[]>([])
 const usersPage = ref<PaginationState>({
