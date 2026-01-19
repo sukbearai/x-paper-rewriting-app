@@ -137,6 +137,11 @@ function handleToolClick(index: number) {
   console.log('选中工具:', aiTools[index])
 }
 
+const maxCharLimit = computed(() => {
+  const tool = aiTools[selectedTool.value]
+  return tool.name.includes('全文改写') ? 500 : 3000
+})
+
 const estimatedCost = computed(() => {
   return (charCount.value / 1000) * 3.0 // 每1000字3积分
 })
@@ -164,8 +169,24 @@ async function startProcessing() {
     return
   }
 
-  if (charCount.value > 3000) {
-    ElMessage.warning('文本长度不能超过3000字')
+  if (charCount.value > maxCharLimit.value) {
+    if (maxCharLimit.value === 500) {
+      ElMessageBox.confirm(
+        '当前文本超过500字，建议使用文档版处理',
+        '提示',
+        {
+          confirmButtonText: '去文档版',
+          cancelButtonText: '取消',
+          type: 'warning',
+        },
+      )
+        .then(() => {
+          router.push('/rewrite')
+        })
+        .catch(() => {})
+      return
+    }
+    ElMessage.warning(`文本长度不能超过${maxCharLimit.value}字`)
     return
   }
 
@@ -362,7 +383,9 @@ onBeforeUnmount(() => {
               <h2 class="text-lg font-medium text-gray-900">
                 {{ aiTools[selectedTool].name }}
               </h2>
-              <span class="text-sm text-gray-500">单次处理最多 3000 字</span>
+              <span class="text-sm text-gray-500">
+                单次处理最多 {{ maxCharLimit }} 字{{ maxCharLimit === 500 ? '，建议文档版处理' : '' }}
+              </span>
             </div>
           </template>
 
