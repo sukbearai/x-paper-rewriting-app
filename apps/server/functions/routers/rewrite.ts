@@ -142,11 +142,14 @@ rewrite.post('/rewrite_docx', async (c) => {
     if (result && result.word_count) {
       const wordCount = Number(result.word_count)
       if (!Number.isNaN(wordCount) && wordCount > 0) {
+        // Log to words_count table
+        await supabase.from('words_count').insert({
+          words_count: wordCount,
+        })
+
         const POINTS_PER_1000_CHARS = 3
         const cost = Math.trunc((wordCount / 1000 * POINTS_PER_1000_CHARS) * 1000) / 1000
         responseData.cost = cost
-
-        const supabase = createSupabaseAdminClient(c.env)
 
         // Get profile id
         const { data: profile } = await supabase
@@ -322,6 +325,11 @@ rewrite.post('/rewrite_paragraph', async (c) => {
         description: `全文改写 (${type === 1 ? '降AI' : '降重'}) - ${charCount}字`,
         // reference_id: result.order_id, // Paragraph rewrite might not return order_id, check result
         is_successful: true,
+      })
+
+      // Log to words_count table
+      await supabase.from('words_count').insert({
+        words_count: charCount,
       })
 
       console.log(`[rewrite_paragraph] Deducted ${cost} points for user ${username}`)
