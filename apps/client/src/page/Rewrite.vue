@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import mammoth from 'mammoth'
 import { checkRewriteState, rewriteDocx } from '@/api/services'
 
 const rewriteTypes = [
@@ -17,6 +18,8 @@ const orderId = ref('')
 const downloadUrl = ref('')
 const pollTimer = ref<any>(null)
 const uploadInfo = ref({ wordCount: 0, cost: 0 })
+const fileWordCount = ref(0)
+const countingWords = ref(false)
 
 function triggerFileInput() {
   fileInput.value?.click()
@@ -35,12 +38,32 @@ function handleDrop(event: DragEvent) {
   }
 }
 
-function validateAndSetFile(file: File) {
+async function validateAndSetFile(file: File) {
   if (!file.name.endsWith('.docx')) {
     ElMessage.error('仅支持 .docx 格式的文件')
     return
   }
   selectedFile.value = file
+  fileWordCount.value = 0
+
+  // 读取文档字数
+  try {
+    countingWords.value = true
+    const arrayBuffer = await file.arrayBuffer()
+    const result = await mammoth.extractRawText({ arrayBuffer })
+    const text = result.value
+    // 计算字数：中文字符 + 英文单词数
+    const chineseChars = (text.match(/[\u4E00-\u9FA5]/g) || []).length
+    const englishWords = (text.match(/[a-z]+/gi) || []).length
+    fileWordCount.value = chineseChars + englishWords
+  }
+  catch (error) {
+    console.error('读取文档失败:', error)
+    ElMessage.warning('无法读取文档字数')
+  }
+  finally {
+    countingWords.value = false
+  }
 }
 
 async function startRewrite() {
@@ -153,6 +176,12 @@ onUnmounted(() => {
           >
           <div v-if="selectedFile" class="text-green-600 font-medium text-lg">
             <span class="mr-2">📄</span> {{ selectedFile.name }}
+            <div v-if="countingWords" class="text-sm text-gray-500 mt-1">
+              正在统计字数...
+            </div>
+            <div v-else-if="fileWordCount > 0" class="text-sm text-gray-500 mt-1">
+              文档字数：{{ fileWordCount }} 字
+            </div>
           </div>
           <div v-else class="text-gray-500">
             <p class="text-xl mb-2">
