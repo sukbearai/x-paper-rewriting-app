@@ -37,6 +37,8 @@ import type {
   UserListResponse,
   WordsCountItem,
   WordsCountListItem,
+  WordsCountListQueryParams,
+  WordsCountListResponseData,
 } from '@/api/interface'
 
 export function sendSmsCode(data: SmsCodeParams) {
@@ -247,12 +249,13 @@ export async function createWordsCount(data: CreateWordsCountParams) {
 }
 
 // 获取字数统计列表（调用外部接口）
-export async function queryWordsCountList() {
-  const response = await axiosInstance.get<{ code: number, message: string, data: WordsCountListItem[] }>(
+export async function queryWordsCountList(params: WordsCountListQueryParams = {}) {
+  const response = await axiosInstance.get<{ code: number, message: string, data: WordsCountListResponseData }>(
     'https://shebei.congrongtech.cn/api/words-count/list',
     {
       headers: { 'Content-Type': 'application/json' },
       withCredentials: false,
+      params,
     },
   )
   return response.data.data

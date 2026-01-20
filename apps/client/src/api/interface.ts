@@ -322,10 +322,10 @@ export interface CreateAlipayPaymentParams {
 
 // 代理代付充值参数
 export interface PayForDownlineParams {
-  target_user_id: string  // 目标用户ID
-  total_amount: number    // 充值金额（元）
-  subject?: string        // 充值说明
-  return_url?: string     // 支付完成后的返回URL
+  target_user_id: string // 目标用户ID
+  total_amount: number // 充值金额（元）
+  subject?: string // 充值说明
+  return_url?: string // 支付完成后的返回URL
 }
 
 export interface RewriteDocxParams {
@@ -383,4 +383,18 @@ export interface WordsCountListItem {
   downloadUrl: string | null
   createTime: string
   orderId: string | null
+}
+
+export interface WordsCountListQueryParams {
+  id?: number
+  month?: string
+  page?: number
+  limit?: number
+}
+
+export interface WordsCountListResponseData {
+  list: WordsCountListItem[]
+  total: number
+  page: number
+  pageSize: number
 }

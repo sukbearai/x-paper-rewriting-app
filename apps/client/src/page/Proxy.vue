@@ -582,38 +582,31 @@ watch(() => currentUser.value?.role, () => {
 // 字数统计
 const wordsCountLoading = ref(false)
 const wordsCountData = ref<WordsCountListItem[]>([])
+const wordsCountRequestId = ref(0)
 const selectedMonth = ref('')
-
-// 获取所有月份选项
-const monthOptions = computed(() => {
-  const months = new Set<string>()
-  wordsCountData.value.forEach((item) => {
-    const month = dayjs(item.createTime).format('YYYY-MM')
-    months.add(month)
-  })
-  return Array.from(months).sort((a, b) => b.localeCompare(a))
+const wordsCountPage = ref<PaginationState>({
+  total: 0,
+  pageNum: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
 })
+const wordsCountColumns = ref([
+  { prop: 'id', label: 'ID', width: 80 },
+  { prop: 'createTime', label: '时间', minWidth: 180 },
+  { prop: 'clientWordsCount', label: '客户端字数', width: 120, slot: 'clientWordsCount' },
+  { prop: 'serverWordsCount', label: '服务端字数', width: 120, slot: 'serverWordsCount' },
+  { prop: 'orderId', label: '订单ID', minWidth: 260 },
+  { prop: 'downloadUrl', label: '下载链接', width: 100, slot: 'downloadUrl' },
+])
 
-// 按月份筛选的数据
-const filteredWordsCountData = computed(() => {
-  if (!selectedMonth.value) {
-    return wordsCountData.value
-  }
-  return wordsCountData.value.filter((item) => {
-    const month = dayjs(item.createTime).format('YYYY-MM')
-    return month === selectedMonth.value
-  })
-})
-
-// 月统计汇总
+// 月统计汇总（当前页）
 const monthlyStats = computed(() => {
-  const dataToSum = selectedMonth.value ? filteredWordsCountData.value : wordsCountData.value
-  const totalClient = dataToSum.reduce((sum, item) => sum + (item.clientWordsCount || 0), 0)
-  const totalServer = dataToSum.reduce((sum, item) => sum + (item.serverWordsCount || 0), 0)
+  const data = wordsCountData.value
+  const totalClient = data.reduce((sum, item) => sum + (item.clientWordsCount || 0), 0)
+  const totalServer = data.reduce((sum, item) => sum + (item.serverWordsCount || 0), 0)
   return {
     totalClient,
     totalServer,
-    count: dataToSum.length,
+    count: wordsCountPage.value.total, // 总记录数来自接口
   }
 })
 
@@ -623,19 +616,52 @@ async function getWordsCountData() {
     return
   }
 
+  const requestId = wordsCountRequestId.value + 1
+  wordsCountRequestId.value = requestId
   wordsCountLoading.value = true
+
   try {
-    const res = await queryWordsCountList()
-    wordsCountData.value = res || []
+    const res = await queryWordsCountList({
+      page: wordsCountPage.value.pageNum,
+      limit: wordsCountPage.value.pageSize,
+      month: selectedMonth.value ? dayjs(selectedMonth.value).format('YYYY-MM') : undefined,
+    })
+
+    if (wordsCountRequestId.value !== requestId)
+      return
+
+    wordsCountData.value = res.list || []
+    wordsCountPage.value.total = res.total || 0
   }
   catch (err: any) {
+    if (wordsCountRequestId.value !== requestId)
+      return
+
     const msg = err?.response?.data?.message || '获取字数统计失败'
     ElMessage.error(msg)
     wordsCountData.value = []
+    wordsCountPage.value.total = 0
   }
   finally {
-    wordsCountLoading.value = false
+    if (wordsCountRequestId.value === requestId)
+      wordsCountLoading.value = false
   }
+}
+
+function handleWordsCountPageChange(payload: PageChangePayload) {
+  if (!payload?.page)
+    return
+  wordsCountPage.value.pageNum = payload.page
+  wordsCountPage.value.pageSize = payload.size
+  getWordsCountData()
+}
+
+function handleWordsCountSizeChange(payload: PageChangePayload) {
+  if (!payload?.size)
+    return
+  wordsCountPage.value.pageSize = payload.size
+  wordsCountPage.value.pageNum = payload.page
+  getWordsCountData()
 }
 
 watch(activeTab, (tab) => {
@@ -820,9 +846,16 @@ watch(activeTab, (tab) => {
         <!-- 筛选和统计 -->
         <div class="words-count-header">
           <div class="filter-row">
-            <el-select v-model="selectedMonth" placeholder="选择月份" clearable style="width: 150px;">
-              <el-option v-for="month in monthOptions" :key="month" :label="month" :value="month" />
-            </el-select>
+            <el-date-picker
+              v-model="selectedMonth"
+              type="month"
+              placeholder="选择月份"
+              format="YYYY-MM"
+              value-format="YYYY-MM"
+              style="width: 150px;"
+              clearable
+              @change="getWordsCountData"
+            />
             <el-button type="primary" @click="getWordsCountData">
               刷新
             </el-button>
@@ -830,7 +863,7 @@ watch(activeTab, (tab) => {
           <div class="stats-cards">
             <div class="stat-card">
               <div class="stat-label">
-                记录数
+                总记录数
               </div>
               <div class="stat-value">
                 {{ monthlyStats.count }}
@@ -838,7 +871,7 @@ watch(activeTab, (tab) => {
             </div>
             <div class="stat-card">
               <div class="stat-label">
-                客户端总字数
+                客户端字数(当前页)
               </div>
               <div class="stat-value">
                 {{ monthlyStats.totalClient.toLocaleString() }}
@@ -846,7 +879,7 @@ watch(activeTab, (tab) => {
             </div>
             <div class="stat-card">
               <div class="stat-label">
-                服务端总字数
+                服务端字数(当前页)
               </div>
               <div class="stat-value">
                 {{ monthlyStats.totalServer.toLocaleString() }}
@@ -855,31 +888,30 @@ watch(activeTab, (tab) => {
           </div>
         </div>
         <!-- 详细记录表格 -->
-        <el-table v-loading="wordsCountLoading" :data="filteredWordsCountData" border style="width: 100%">
-          <el-table-column prop="id" label="ID" width="80" />
-          <el-table-column prop="createTime" label="时间" width="180" />
-          <el-table-column prop="clientWordsCount" label="客户端字数" width="120">
-            <template #default="{ row }">
-              {{ row.clientWordsCount?.toLocaleString() || 0 }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="serverWordsCount" label="服务端字数" width="120">
-            <template #default="{ row }">
-              {{ row.serverWordsCount?.toLocaleString() || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="orderId" label="订单ID" min-width="280">
-            <template #default="{ row }">
-              {{ row.orderId || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="downloadUrl" label="下载链接" width="100">
-            <template #default="{ row }">
-              <a v-if="row.downloadUrl" :href="row.downloadUrl" target="_blank" class="download-link">下载</a>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-        </el-table>
+        <DragTable
+          fit
+          :data="{ name: 'wordsCount', data: wordsCountData }"
+          :columns="wordsCountColumns"
+          :loading="wordsCountLoading"
+          border
+          :show-pagination="true"
+          :total="wordsCountPage.total"
+          :page-size="wordsCountPage.pageSize"
+          :page-num="wordsCountPage.pageNum"
+          @page-num-change="handleWordsCountPageChange"
+          @page-size-change="handleWordsCountSizeChange"
+        >
+          <template #clientWordsCount="{ row }">
+            {{ row.clientWordsCount?.toLocaleString() || 0 }}
+          </template>
+          <template #serverWordsCount="{ row }">
+            {{ row.serverWordsCount?.toLocaleString() || '-' }}
+          </template>
+          <template #downloadUrl="{ row }">
+            <a v-if="row.downloadUrl" :href="row.downloadUrl" target="_blank" class="download-link">下载</a>
+            <span v-else>-</span>
+          </template>
+        </DragTable>
       </el-tab-pane>
     </el-tabs>
 
