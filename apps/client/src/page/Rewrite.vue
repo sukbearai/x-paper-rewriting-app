@@ -2,7 +2,8 @@
 import { onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import mammoth from 'mammoth'
-import { checkRewriteState, rewriteDocx } from '@/api/services'
+import dayjs from 'dayjs'
+import { checkRewriteState, createWordsCount, rewriteDocx } from '@/api/services'
 
 const rewriteTypes = [
   { label: '降低重复率', value: '0' },
@@ -52,10 +53,9 @@ async function validateAndSetFile(file: File) {
     const arrayBuffer = await file.arrayBuffer()
     const result = await mammoth.extractRawText({ arrayBuffer })
     const text = result.value
-    // 计算字数：中文字符 + 英文单词数
-    const chineseChars = (text.match(/[\u4E00-\u9FA5]/g) || []).length
-    const englishWords = (text.match(/[a-z]+/gi) || []).length
-    fileWordCount.value = chineseChars + englishWords
+    // 统计汉字和英文字母的数量
+    const words = text.match(/[a-z\u4E00-\u9FA5]/gi)
+    fileWordCount.value = words ? words.length : 0
   }
   catch (error) {
     console.error('读取文档失败:', error)
@@ -110,6 +110,20 @@ function startPolling() {
         completed.value = true
         processing.value = false
         stopPolling()
+
+        // 调用字数统计接口
+        try {
+          await createWordsCount({
+            clientWordsCount: fileWordCount.value,
+            serverWordsCount: uploadInfo.value.wordCount || undefined,
+            downloadUrl: res.download_url,
+            orderId: orderId.value,
+            createTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          })
+        }
+        catch (err) {
+          console.error('字数统计记录失败:', err)
+        }
       }
       else if (res.state !== 0 && res.state !== 2) {
         // Assuming other states might indicate failure or stopped processing?

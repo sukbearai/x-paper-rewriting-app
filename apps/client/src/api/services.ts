@@ -2,6 +2,8 @@ import { axiosInstance, request } from '@/api/axios'
 import type {
   ChangePasswordParams,
   CreateAlipayPaymentParams,
+  CreateWordsCountParams,
+  CreateWordsCountResponse,
   LoginResponse,
   LoginWithOtpParams,
   LoginWithPasswordParams,
@@ -34,6 +36,7 @@ import type {
   UserListQueryParams,
   UserListResponse,
   WordsCountItem,
+  WordsCountListItem,
 } from '@/api/interface'
 
 export function sendSmsCode(data: SmsCodeParams) {
@@ -228,4 +231,29 @@ export function queryWordsCount() {
     method: 'get',
     headers: { 'Content-Type': 'application/json' },
   })
+}
+
+// 创建字数统计记录（调用外部接口）
+export async function createWordsCount(data: CreateWordsCountParams) {
+  const response = await axiosInstance.post<{ code: number, message: string, data: CreateWordsCountResponse }>(
+    'https://shebei.congrongtech.cn/api/words-count/create',
+    data,
+    {
+      headers: { 'Content-Type': 'application/json' },
+      withCredentials: false,
+    },
+  )
+  return response.data
+}
+
+// 获取字数统计列表（调用外部接口）
+export async function queryWordsCountList() {
+  const response = await axiosInstance.get<{ code: number, message: string, data: WordsCountListItem[] }>(
+    'https://shebei.congrongtech.cn/api/words-count/list',
+    {
+      headers: { 'Content-Type': 'application/json' },
+      withCredentials: false,
+    },
+  )
+  return response.data.data
 }

@@ -4,8 +4,9 @@ import { useRouter } from 'vue-router'
 import { InfoFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRequest } from 'vue-hooks-plus'
+import dayjs from 'dayjs'
 import { useAuthStore } from '@/store/auth'
-import { queryTaskResult, rewriteParagraph, submitReduceTask } from '@/api/services'
+import { createWordsCount, queryTaskResult, rewriteParagraph, submitReduceTask } from '@/api/services'
 import type { SubmitTaskParams, TaskResultParams } from '@/api/interface'
 
 const authStore = useAuthStore()
@@ -228,6 +229,17 @@ async function startProcessing() {
         resultCharCount.value = outputText.value.length
         processingStatus.value = 'completed'
         ElMessage.success(res.msg || '改写完成')
+
+        // 调用字数统计接口
+        try {
+          await createWordsCount({
+            clientWordsCount: charCount.value,
+            createTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+          })
+        }
+        catch (err) {
+          console.error('字数统计记录失败:', err)
+        }
 
         // Update balance if cost returned
         if (res.new_balance !== undefined) {

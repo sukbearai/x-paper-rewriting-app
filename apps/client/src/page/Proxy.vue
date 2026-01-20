@@ -5,8 +5,8 @@ import { storeToRefs } from 'pinia'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import DragTable from '@/components/drag-table.vue'
-import type { RechargeRecord, UserListItem, UserRole, WordsCountItem } from '@/api/interface'
-import { payForDownline, queryRechargeRecords, queryUserList, queryWordsCount, updateUserPoints, updateUserRate, updateUserRole } from '@/api/services'
+import type { RechargeRecord, UserListItem, UserRole, WordsCountListItem } from '@/api/interface'
+import { payForDownline, queryRechargeRecords, queryUserList, queryWordsCountList, updateUserPoints, updateUserRate, updateUserRole } from '@/api/services'
 import { useAuthStore } from '@/store/auth'
 
 type TabKey = 'users' | 'recharges' | 'words_count'
@@ -581,7 +581,41 @@ watch(() => currentUser.value?.role, () => {
 
 // 字数统计
 const wordsCountLoading = ref(false)
-const wordsCountData = ref<{ month: string, total: number }[]>([])
+const wordsCountData = ref<WordsCountListItem[]>([])
+const selectedMonth = ref('')
+
+// 获取所有月份选项
+const monthOptions = computed(() => {
+  const months = new Set<string>()
+  wordsCountData.value.forEach((item) => {
+    const month = dayjs(item.createTime).format('YYYY-MM')
+    months.add(month)
+  })
+  return Array.from(months).sort((a, b) => b.localeCompare(a))
+})
+
+// 按月份筛选的数据
+const filteredWordsCountData = computed(() => {
+  if (!selectedMonth.value) {
+    return wordsCountData.value
+  }
+  return wordsCountData.value.filter((item) => {
+    const month = dayjs(item.createTime).format('YYYY-MM')
+    return month === selectedMonth.value
+  })
+})
+
+// 月统计汇总
+const monthlyStats = computed(() => {
+  const dataToSum = selectedMonth.value ? filteredWordsCountData.value : wordsCountData.value
+  const totalClient = dataToSum.reduce((sum, item) => sum + (item.clientWordsCount || 0), 0)
+  const totalServer = dataToSum.reduce((sum, item) => sum + (item.serverWordsCount || 0), 0)
+  return {
+    totalClient,
+    totalServer,
+    count: dataToSum.length,
+  }
+})
 
 async function getWordsCountData() {
   if (!isAdmin.value) {
@@ -591,22 +625,8 @@ async function getWordsCountData() {
 
   wordsCountLoading.value = true
   try {
-    const res = await queryWordsCount()
-    const monthlyGroups: Record<string, number> = {}
-
-    if (res && Array.isArray(res)) {
-      res.forEach((item) => {
-        const month = dayjs(item.created_at).format('YYYY-MM')
-        if (!monthlyGroups[month]) {
-          monthlyGroups[month] = 0
-        }
-        monthlyGroups[month] += Number(item.words_count)
-      })
-
-      wordsCountData.value = Object.entries(monthlyGroups)
-        .map(([month, total]) => ({ month, total }))
-        .sort((a, b) => b.month.localeCompare(a.month))
-    }
+    const res = await queryWordsCountList()
+    wordsCountData.value = res || []
   }
   catch (err: any) {
     const msg = err?.response?.data?.message || '获取字数统计失败'
@@ -797,11 +817,66 @@ watch(activeTab, (tab) => {
       </el-tab-pane>
 
       <el-tab-pane v-if="isAdmin" label="字数统计" name="words_count">
-        <el-table v-loading="wordsCountLoading" :data="wordsCountData" border style="width: 100%">
-          <el-table-column prop="month" label="月份" width="180" />
-          <el-table-column prop="total" label="总字数">
+        <!-- 筛选和统计 -->
+        <div class="words-count-header">
+          <div class="filter-row">
+            <el-select v-model="selectedMonth" placeholder="选择月份" clearable style="width: 150px;">
+              <el-option v-for="month in monthOptions" :key="month" :label="month" :value="month" />
+            </el-select>
+            <el-button type="primary" @click="getWordsCountData">
+              刷新
+            </el-button>
+          </div>
+          <div class="stats-cards">
+            <div class="stat-card">
+              <div class="stat-label">
+                记录数
+              </div>
+              <div class="stat-value">
+                {{ monthlyStats.count }}
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">
+                客户端总字数
+              </div>
+              <div class="stat-value">
+                {{ monthlyStats.totalClient.toLocaleString() }}
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">
+                服务端总字数
+              </div>
+              <div class="stat-value">
+                {{ monthlyStats.totalServer.toLocaleString() }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 详细记录表格 -->
+        <el-table v-loading="wordsCountLoading" :data="filteredWordsCountData" border style="width: 100%">
+          <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column prop="createTime" label="时间" width="180" />
+          <el-table-column prop="clientWordsCount" label="客户端字数" width="120">
             <template #default="{ row }">
-              {{ row.total.toLocaleString() }}
+              {{ row.clientWordsCount?.toLocaleString() || 0 }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="serverWordsCount" label="服务端字数" width="120">
+            <template #default="{ row }">
+              {{ row.serverWordsCount?.toLocaleString() || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="orderId" label="订单ID" min-width="280">
+            <template #default="{ row }">
+              {{ row.orderId || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="downloadUrl" label="下载链接" width="100">
+            <template #default="{ row }">
+              <a v-if="row.downloadUrl" :href="row.downloadUrl" target="_blank" class="download-link">下载</a>
+              <span v-else>-</span>
             </template>
           </el-table-column>
         </el-table>
@@ -949,5 +1024,54 @@ watch(activeTab, (tab) => {
   margin-left: 4px;
   font-size: 12px;
   color: #9ca3af;
+}
+
+/* 字数统计相关样式 */
+.words-count-header {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.stats-cards {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px 24px;
+  min-width: 180px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.download-link {
+  color: #409eff;
+  text-decoration: none;
+}
+
+.download-link:hover {
+  text-decoration: underline;
 }
 </style>

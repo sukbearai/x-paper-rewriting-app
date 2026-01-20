@@ -356,3 +356,31 @@ export interface WordsCountItem {
   words_count: number
   created_at: string
 }
+
+// 字数统计记录创建接口
+export interface CreateWordsCountParams {
+  clientWordsCount: number
+  createTime: string
+  serverWordsCount?: number
+  downloadUrl?: string
+  orderId?: string
+}
+
+export interface CreateWordsCountResponse {
+  id: number
+  clientWordsCount: number
+  serverWordsCount?: number
+  downloadUrl?: string
+  createTime: string
+  orderId?: string
+}
+
+// 字数统计列表项（外部接口返回）
+export interface WordsCountListItem {
+  id: number
+  clientWordsCount: number
+  serverWordsCount: number | null
+  downloadUrl: string | null
+  createTime: string
+  orderId: string | null
+}
