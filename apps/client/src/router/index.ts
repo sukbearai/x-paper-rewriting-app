@@ -6,6 +6,7 @@ import Proxy from '../page/Proxy.vue'
 import UserCenter from '../page/UserCenter.vue'
 import BalanceRecharge from '../page/BalanceRecharge.vue'
 import Rewrite from '../page/Rewrite.vue'
+import WordsCountStats from '../page/WordsCountStats.vue'
 
 interface PersistedAuthState {
   accessToken?: string
@@ -34,6 +35,7 @@ function hasValidSession(auth: PersistedAuthState | null): boolean {
 declare module 'vue-router' {
   interface RouteMeta {
     roles?: string[]
+    fullScreen?: boolean
   }
 }
 const routes: Array<RouteRecordRaw> = [
@@ -72,6 +74,12 @@ const routes: Array<RouteRecordRaw> = [
     name: 'Rewrite',
     component: Rewrite,
     meta: { roles: ['user', 'admin', 'agent'] },
+  },
+  {
+    path: '/wordsCountStats',
+    name: 'WordsCountStats',
+    component: WordsCountStats,
+    meta: { roles: [], fullScreen: true },
   },
 ]
 

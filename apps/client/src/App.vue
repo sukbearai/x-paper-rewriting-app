@@ -115,6 +115,7 @@ function goToRecharge() {
   <div id="app">
     <!-- 使用Home.vue中的菜单样式 -->
     <el-menu
+      v-if="!route.meta.fullScreen"
       :default-active="activeMenu" class="el-menu-demo h-16 border-b border-gray-200 gradient-bg"
       mode="horizontal" :ellipsis="false" text-color="#606266" active-text-color="#409EFF" @select="handleMenuSelect"
     >
