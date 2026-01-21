@@ -49,7 +49,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/login',
     name: 'Login',
     component: SmsAuth,
-    meta: { roles: ['guest'] },
+    meta: { roles: ['user', 'admin', 'agent', 'guest'] },
   },
   {
     path: '/proxy',
@@ -79,7 +79,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/wordsCountStats',
     name: 'WordsCountStats',
     component: WordsCountStats,
-    meta: { roles: ['guest'], fullScreen: true },
+    meta: { roles: ['user', 'admin', 'agent', 'guest'], fullScreen: true },
   },
 ]
 
