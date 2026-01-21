@@ -60,7 +60,7 @@ function switchTime(type: string) {
 
 async function fetchData() {
   try {
-    const res = await queryWordsCountList({ page: 1, limit: 10000 })
+    const res = await queryWordsCountList({ page: 1, limit: 200000 })
     if (res && res.list) {
       allRecords.value = res.list
       // Assume server returns data sorted by time desc, or we sort it?
