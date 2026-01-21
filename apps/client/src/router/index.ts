@@ -79,7 +79,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/wordsCountStats',
     name: 'WordsCountStats',
     component: WordsCountStats,
-    meta: { roles: [], fullScreen: true },
+    meta: { roles: ['guest'], fullScreen: true },
   },
 ]
 
