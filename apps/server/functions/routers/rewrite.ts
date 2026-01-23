@@ -23,15 +23,6 @@ rewrite.post('/rewrite_docx', async (c) => {
     const username = c.get('username')
 
     const supabase = createSupabaseAdminClient(c.env)
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('points_balance')
-      .eq('user_id', userId)
-      .single()
-
-    if ((userProfile?.points_balance || 0) < 100) {
-      return c.json(createErrorResponse('积分不足，最少需要 100 积分才能使用改写功能', 403), 403)
-    }
 
     const formData = await c.req.parseBody()
     const file = formData.file

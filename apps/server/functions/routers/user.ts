@@ -597,7 +597,7 @@ user.post('/register', async (c) => {
         invite_code: userInviteCode,
         invited_by: invitedByProfile?.id || null,
         role: 'user',
-        points_balance: 0,
+        points_balance: invitedByProfile ? 1 : 0,
         rate: 1,
       })
       .select('id, username, email, phone, invite_code, role, points_balance, rate, created_at')
@@ -620,6 +620,24 @@ user.post('/register', async (c) => {
       }
 
       return c.json(createErrorResponse(`创建用户档案失败: ${profileError.message || '用户档案创建失败'} [步骤: 4/4]`, 500), 500)
+    }
+
+    // 如果有邀请人，记录积分赠送交易
+    if (invitedByProfile) {
+      try {
+        await adminSupabase.from('points_transactions').insert({
+          profile_id: profileData.id,
+          transaction_type: 'recharge',
+          amount: 1,
+          balance_after: 1,
+          description: '注册邀请奖励',
+          is_successful: true,
+        })
+      }
+      catch (transactionError) {
+        console.error('[register] Failed to record bonus transaction:', transactionError)
+        // 交易记录失败不阻止注册流程，但记录错误日志
+      }
     }
 
     return c.json(createSuccessResponse({

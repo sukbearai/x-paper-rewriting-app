@@ -124,8 +124,8 @@ export function queryTaskResult(data: TaskResultParams) {
 }
 
 export function queryPoints() {
-  return request<PointsResponse>('/ai/points', {
-    method: 'post',
+  return request<PointsResponse>('/points/balance', {
+    method: 'get',
     headers: { 'Content-Type': 'application/json' },
   })
 }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import mammoth from 'mammoth'
 import dayjs from 'dayjs'
-import { checkRewriteState, createWordsCount, rewriteDocx } from '@/api/services'
+import { checkRewriteState, createWordsCount, queryPoints, rewriteDocx } from '@/api/services'
 
 const rewriteTypes = [
   { label: '降低重复率', value: '0' },
@@ -21,6 +21,20 @@ const pollTimer = ref<any>(null)
 const uploadInfo = ref({ wordCount: 0, cost: 0 })
 const fileWordCount = ref(0)
 const countingWords = ref(false)
+const currentBalance = ref(0)
+const estimatedCost = ref(0)
+
+onMounted(async () => {
+  try {
+    const res = await queryPoints()
+    if (res && res.points_balance !== undefined) {
+      currentBalance.value = res.points_balance
+    }
+  }
+  catch (error) {
+    console.error('获取积分余额失败:', error)
+  }
+})
 
 function triggerFileInput() {
   fileInput.value?.click()
@@ -46,6 +60,7 @@ async function validateAndSetFile(file: File) {
   }
   selectedFile.value = file
   fileWordCount.value = 0
+  estimatedCost.value = 0
 
   // 读取文档字数
   try {
@@ -55,7 +70,12 @@ async function validateAndSetFile(file: File) {
     const text = result.value
     // 统计汉字和英文字母的数量
     const words = text.match(/[a-z\u4E00-\u9FA5]/gi)
-    fileWordCount.value = words ? words.length : 0
+    const count = words ? words.length : 0
+    fileWordCount.value = count
+
+    // 计算预估积分: 每1000字3积分
+    const POINTS_PER_1000_CHARS = 3
+    estimatedCost.value = Math.max(0.01, Math.trunc((count / 1000 * POINTS_PER_1000_CHARS) * 1000) / 1000)
   }
   catch (error) {
     console.error('读取文档失败:', error)
@@ -70,6 +90,11 @@ async function startRewrite() {
   if (!selectedFile.value)
     return
 
+  if (currentBalance.value < estimatedCost.value) {
+    ElMessage.error(`积分不足，需要 ${estimatedCost.value} 积分，当前余额 ${currentBalance.value} 积分`)
+    return
+  }
+
   try {
     processing.value = true
     const res = await rewriteDocx({
@@ -83,6 +108,12 @@ async function startRewrite() {
         uploadInfo.value.wordCount = Number(res.word_count)
       if (res.cost)
         uploadInfo.value.cost = Number(res.cost)
+
+      // 更新余额
+      if (res.new_balance !== undefined) {
+        currentBalance.value = res.new_balance
+      }
+
       startPolling()
     }
     else {
@@ -159,6 +190,12 @@ function reset() {
   downloadUrl.value = ''
   if (fileInput.value)
     fileInput.value.value = ''
+  // 刷新余额
+  queryPoints().then((res) => {
+    if (res && res.points_balance !== undefined) {
+      currentBalance.value = res.points_balance
+    }
+  }).catch(console.error)
 }
 
 onUnmounted(() => {
@@ -193,8 +230,17 @@ onUnmounted(() => {
             <div v-if="countingWords" class="text-sm text-gray-500 mt-1">
               正在统计字数...
             </div>
-            <div v-else-if="fileWordCount > 0" class="text-sm text-gray-500 mt-1">
-              文档字数：{{ fileWordCount }} 字
+            <div v-else-if="fileWordCount > 0" class="text-sm text-gray-500 mt-1 space-y-1">
+              <div>文档字数：{{ fileWordCount }} 字</div>
+              <div class="flex items-center justify-center gap-4">
+                <span>预估消耗：<span class="font-bold">{{ estimatedCost }}</span> 积分</span>
+                <span :class="currentBalance < estimatedCost ? 'text-red-500' : 'text-green-600'">
+                  (当前余额: <span class="font-bold">{{ currentBalance }}</span>)
+                </span>
+              </div>
+              <div v-if="currentBalance < estimatedCost" class="text-red-500 text-xs font-bold">
+                您的积分不足，请充值后再试
+              </div>
             </div>
           </div>
           <div v-else class="text-gray-500">
@@ -203,6 +249,9 @@ onUnmounted(() => {
             </p>
             <p class="text-sm">
               仅支持 .docx 格式文档
+            </p>
+            <p class="text-xs mt-2 text-gray-400">
+              当前余额: {{ currentBalance }} 积分
             </p>
           </div>
         </div>
@@ -222,7 +271,7 @@ onUnmounted(() => {
         </div>
 
         <button
-          :disabled="!selectedFile"
+          :disabled="!selectedFile || currentBalance < estimatedCost"
           class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           @click="startRewrite"
         >
