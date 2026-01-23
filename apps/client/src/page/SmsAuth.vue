@@ -90,6 +90,9 @@ const registerRules = reactive<FormRules>({
     { required: true, message: '请输入验证码', trigger: 'blur' },
     { pattern: /^\d{6}$/, message: '验证码为 6 位数字', trigger: 'blur' },
   ],
+  invite: [
+    { required: true, message: '请输入邀请码', trigger: 'blur' },
+  ],
 })
 
 const { runAsync: loginOtpAsync, loading: loginOtpLoading } = useRequest(authStore.loginByOtp, {
@@ -502,7 +505,7 @@ onBeforeUnmount(() => {
               <el-form-item label="邀请码" prop="invite">
                 <el-input
                   v-model="registerForm.invite"
-                  placeholder="请输入邀请码（可选）"
+                  placeholder="请输入邀请码"
                   @keyup.enter.prevent="submit('register')"
                 />
               </el-form-item>
