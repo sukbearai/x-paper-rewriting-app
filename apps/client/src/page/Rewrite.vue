@@ -172,7 +172,7 @@ function startPolling() {
       console.error('Polling error:', error)
       // Optional: stop polling after certain failures or keep retrying
     }
-  }, 2000) // Poll every 2 seconds
+  }, 15000) // Poll every 15 seconds
 }
 
 function stopPolling() {
