@@ -84,7 +84,7 @@ curl -X POST https://rewriting.congrongtech.cn/otp \
   ```json
   {
     "code": 409,
-    "message": "该手机号已注册，请直接登录",
+    "message": "该手机号已注册，请直接登录.",
     "data": null,
     "timestamp": 1672531200000
   }
