@@ -48,34 +48,34 @@ const aiTools = [
     isExternal: true,
     path: '/rewrite',
   },
-  {
-    name: '降AI率（知网版）',
-    price: '3.00积分/千字',
-    tooltip: '1、专注降低文本AIGC率，不做降重；2、适配知网检测；3、语句自然通顺，适合审稿前精修；4、实测可将AIGC率稳定降至15%以下',
-    type: 'reduce-ai-rate' as const,
-    platform: 'weipu' as const,
-  },
-  {
-    name: '降AI率（维普版）',
-    price: '3.00积分/千字',
-    tooltip: '1、专注降低文本AIGC率，不做降重；2、适配维普检测；3、保持文本结构稳定；4、支持多轮优化，降低审查风险',
-    type: 'reduce-ai-rate' as const,
-    platform: 'zhiwang' as const,
-  },
-  {
-    name: '降重（知网版）',
-    price: '3.00积分/千字',
-    tooltip: '1、专注降低文本重复率；2、适配知网查重；3、在保持原意的前提下降低重复率；4、配合格式调整可提升通过率',
-    type: 'reduce-plagiarism' as const,
-    platform: 'zhiwang' as const,
-  },
-  {
-    name: '降重（维普版）',
-    price: '3.00积分/千字',
-    tooltip: '1、专注降低文本重复率；2、适配维普查重；3、优化语序和表达，保持逻辑连贯；4、适合维普终审前的深度优化',
-    type: 'reduce-plagiarism' as const,
-    platform: 'weipu' as const,
-  },
+  // {
+  //   name: '降AI率（知网版）',
+  //   price: '3.00积分/千字',
+  //   tooltip: '1、专注降低文本AIGC率，不做降重；2、适配知网检测；3、语句自然通顺，适合审稿前精修；4、实测可将AIGC率稳定降至15%以下',
+  //   type: 'reduce-ai-rate' as const,
+  //   platform: 'weipu' as const,
+  // },
+  // {
+  //   name: '降AI率（维普版）',
+  //   price: '3.00积分/千字',
+  //   tooltip: '1、专注降低文本AIGC率，不做降重；2、适配维普检测；3、保持文本结构稳定；4、支持多轮优化，降低审查风险',
+  //   type: 'reduce-ai-rate' as const,
+  //   platform: 'zhiwang' as const,
+  // },
+  // {
+  //   name: '降重（知网版）',
+  //   price: '3.00积分/千字',
+  //   tooltip: '1、专注降低文本重复率；2、适配知网查重；3、在保持原意的前提下降低重复率；4、配合格式调整可提升通过率',
+  //   type: 'reduce-plagiarism' as const,
+  //   platform: 'zhiwang' as const,
+  // },
+  // {
+  //   name: '降重（维普版）',
+  //   price: '3.00积分/千字',
+  //   tooltip: '1、专注降低文本重复率；2、适配维普查重；3、优化语序和表达，保持逻辑连贯；4、适合维普终审前的深度优化',
+  //   type: 'reduce-plagiarism' as const,
+  //   platform: 'weipu' as const,
+  // },
 ]
 
 // 获取积分信息
