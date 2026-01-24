@@ -91,7 +91,7 @@ const registerRules = reactive<FormRules>({
     { pattern: /^\d{6}$/, message: '验证码为 6 位数字', trigger: 'blur' },
   ],
   invite: [
-    { required: true, message: '请输入邀请码', trigger: 'blur' },
+    { required: false, message: '请输入邀请码', trigger: 'blur' },
   ],
 })
 
